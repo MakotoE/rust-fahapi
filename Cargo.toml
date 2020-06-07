@@ -1,5 +1,5 @@
 [package]
-name = "rust-fahapi"
+name = "fahapi"
 version = "0.1.0"
 authors = ["Makoto <makoto@emurasoft.com>"]
 edition = "2018"
@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 snafu = "0.6.8"
 bytes = "0.5"
+lazy_static = "1.4.0"

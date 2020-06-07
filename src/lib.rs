@@ -1,33 +1,42 @@
 use std::net;
 
 pub struct API {
-    pub context: std::sync::Mutex<connection_and_buffer>,
-}
-
-pub struct connection_and_buffer {
     pub conn: net::TcpStream,
     pub buf: Vec<u8>,
 }
 
 impl API {
-    pub fn connect_timeout(addr: &std::net::SocketAddr, timeout: core::time::Duration) ->
+    /// Default TCP address of the FAH client.
+    pub fn default_addr() -> net::SocketAddr {
+        net::SocketAddr::V4(net::SocketAddrV4::new(
+            net::Ipv4Addr::LOCALHOST,
+            36330,
+        ))
+    }
+
+    /// Connects to your FAH client with specified timeout for all read and writes. Use
+    /// API::default_addr() to get the default address.
+    pub fn connect_timeout(addr: &net::SocketAddr, timeout: core::time::Duration) ->
     std::io::Result<API> {
-        let conn = net::TcpStream::connect_timeout(addr, timeout)?;
+        let mut conn = net::TcpStream::connect_timeout(addr, timeout)?;
         conn.set_read_timeout(Some(timeout))?;
         conn.set_write_timeout(Some(timeout))?;
+
+        let mut buf: Vec<u8> = Vec::new();
+
+        // Discard welcome message
+        read_message(&mut conn, &mut buf)?;
+
         Ok(API{
-            context: std::sync::Mutex::new(connection_and_buffer{
-                conn,
-                buf: Vec::new(),
-            }),
+            conn,
+            buf,
         })
     }
 
     /// Returns a listing of the FAH API commands.
     pub fn help(&mut self) -> Result<String, Box<dyn std::error::Error>> {
-        let mut context = self.context.lock().unwrap();
-        exec(&mut context, "help")?;
-        match std::str::from_utf8(context.buf.as_slice()) {
+        exec(&mut self.conn, "help", &mut self.buf)?;
+        match std::str::from_utf8(self.buf.as_slice()) {
             Ok(s) => Ok(s.to_string()),
             Err(e) => Err(Box::new(e)),
         }
@@ -35,12 +44,12 @@ impl API {
 }
 
 /// Executes a command on the FAH client. The response is written to the buffer.
-pub fn exec(context: &mut connection_and_buffer, command: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn exec(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
     use std::io::Write;
 
     if command == "" {
         // FAH doesn't respond to an empty command
-        context.buf.clear();
+        buf.clear();
         return Ok(());
     }
 
@@ -48,8 +57,8 @@ pub fn exec(context: &mut connection_and_buffer, command: &str) -> Result<(), Bo
         return Err(Box::new(Error::CommandContainsNewline));
     }
 
-    context.conn.write_all(command.as_bytes())?;
-    match read_message(&mut context.conn, &mut context.buf) {
+    conn.write_all(format!("{}\n", command).as_bytes())?;
+    match read_message(conn, buf) {
         Ok(_) => Ok(()),
         Err(e) => Err(Box::new(e)),
     }
@@ -57,19 +66,19 @@ pub fn exec(context: &mut connection_and_buffer, command: &str) -> Result<(), Bo
 
 /// Executes commands which do not return a trailing newline. (Some commands don't end their message
 /// and cause infinite blocking.) The response is written to the buffer.
-pub fn exec_eval(context: &mut connection_and_buffer, command: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn exec_eval(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
     if command == "" {
         // FAH doesn't respond to an empty command
-        context.buf.clear();
+        buf.clear();
         return Ok(());
     }
 
-    exec(context, format!(r#"eval "$({})\n""#, command).as_str())?;
+    exec(conn, format!(r#"eval "$({})\n""#, command).as_str(), buf)?;
 
     // When using eval with a newline, the response contains an extra trailing backslash.
-    match context.buf.last() {
+    match buf.last() {
         Some(b) => if *b == b'\\' {
-            context.buf.pop();
+            buf.pop();
         },
         None => {},
     }
@@ -140,10 +149,11 @@ mod tests {
         let mut buf: Vec<u8> = Vec::new();
         for (i, test) in tests.iter().enumerate() {
             use bytes::buf::ext::BufExt;
-            match read_message(&mut bytes::Bytes::from(test.s).reader(), &mut buf) {
-                Ok(_) => assert_eq!(std::str::from_utf8(buf.as_slice()).unwrap(), test.expected, "{}", i),
-                Err(e) => assert!(false, "{}", e),
-            }
+            read_message(&mut bytes::Bytes::from(test.s).reader(), &mut buf).unwrap();
+            assert_eq!(std::str::from_utf8(buf.as_slice()).unwrap(), test.expected, "{}", i);
         }
     }
 }
+
+#[cfg(test)]
+mod integration_tests;
