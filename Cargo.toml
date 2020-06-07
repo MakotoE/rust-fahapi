@@ -5,3 +5,5 @@ authors = ["Makoto <makoto@emurasoft.com>"]
 edition = "2018"
 
 [dependencies]
+snafu = "0.6.8"
+bytes = "0.5"
