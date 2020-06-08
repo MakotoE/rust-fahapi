@@ -14,14 +14,11 @@ impl API {
         ))
     }
 
-    /// Connects to your FAH client with specified timeout for all read and writes. Use
-    /// API::default_addr() to get the default address.
+    /// Connects to your FAH client with a timeout. Use API::default_addr() to get the default
+    /// address.
     pub fn connect_timeout(addr: &net::SocketAddr, timeout: core::time::Duration) ->
     std::io::Result<API> {
         let mut conn = net::TcpStream::connect_timeout(addr, timeout)?;
-        conn.set_read_timeout(Some(timeout))?;
-        conn.set_write_timeout(Some(timeout))?;
-
         let mut buf: Vec<u8> = Vec::new();
 
         // Discard welcome message
@@ -40,6 +37,48 @@ impl API {
             Ok(s) => Ok(s.to_string()),
             Err(e) => Err(Box::new(e)),
         }
+    }
+
+    /// Enables or disables log updates. Returns current log.
+    pub fn logUpdates(&mut self, arg: LogUpdatesArg) -> Result<String, Box<dyn std::error::Error>> {
+        /*
+            This command is weird. It returns the log after the next prompt, like this:
+            > log-updates start
+
+            >
+            PyON 1 log-update...
+        */
+
+        exec(&mut self.conn, format!("log-updates {}", arg).as_str(), &mut self.buf)?;
+        exec_eval(&mut self.conn, "eval", &mut self.buf)?;
+
+        unimplemented!()
+    }
+}
+
+#[derive(Debug, snafu::Snafu, Clone)]
+pub enum Error {
+    #[snafu(display("command contains newline"))]
+    CommandContainsNewline,
+
+    #[snafu(display("not a valid PyON string"))]
+    NotValidPyONString,
+}
+
+pub enum LogUpdatesArg {
+    Start,
+    Restart,
+    Stop,
+}
+
+impl std::fmt::Display for LogUpdatesArg {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        let s = match self {
+            LogUpdatesArg::Start => "Start",
+            LogUpdatesArg::Restart => "Restart",
+            LogUpdatesArg::Stop => "Stop",
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -89,7 +128,7 @@ fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> std::io::Resul
     buf.clear();
     loop {
         let mut b: [u8; 1] = [0];
-        if r.read(b.as_mut())? == 0 {
+        if r.read(&mut b)? == 0 {
             return Ok(())
         }
 
@@ -110,10 +149,48 @@ fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> std::io::Resul
     }
 }
 
-#[derive(Debug, snafu::Snafu, Clone)]
-pub enum Error {
-    #[snafu(display("command contains newline"))]
-    CommandContainsNewline,
+pub fn parse_pyon_string(b: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
+    if b.len() < 2 || b[0] != b'"' || b[b.len() - 1] != b'"' {
+        return Err(Box::new(Error::NotValidPyONString))
+    }
+
+    lazy_static::lazy_static! {
+        static ref MATCH_ESCAPED: regex::bytes::Regex
+            = regex::bytes::Regex::new(r#"\\x..|\\n|\\r|\\"|\\\\"#).unwrap();
+    }
+
+    let replace_fn: fn(&regex::bytes::Captures) -> Vec<u8> = |caps: &regex::bytes::Captures| {
+        let capture = &caps[0];
+        if capture[0] == b'\\' {
+            return match capture[1] {
+                b'n' => b"\n".to_vec(),
+                b'r' => b"\r".to_vec(),
+                b'"' => b"\"".to_vec(),
+                b'\\' => b"\\".to_vec(),
+                b'x' => {
+                    assert_eq!(capture.len(), 4);
+                    
+                    let s = match std::str::from_utf8(&capture[2..]) {
+                        Ok(s) => s,
+                        Err(e) => return capture.to_vec(),
+                    };
+                    let n: u32 = str::parse(s).unwrap();
+                    match std::char::from_u32(n) {
+                        Some(c) => c.to_string().as_str().as_bytes().to_vec(),
+                        None => capture.to_vec(),
+                    }
+                },
+                _ => capture.to_vec(),
+            };
+        }
+        
+        capture.to_vec()
+    };
+    
+    match std::str::from_utf8(&*MATCH_ESCAPED.replace_all(&b[1..b.len()-1], replace_fn)) {
+        Ok(s) => Ok(s.to_string()),
+        Err(e) => Err(Box::new(e)),
+    }
 }
 
 #[cfg(test)]
@@ -151,6 +228,46 @@ mod tests {
             use bytes::buf::ext::BufExt;
             read_message(&mut bytes::Bytes::from(test.s).reader(), &mut buf).unwrap();
             assert_eq!(std::str::from_utf8(buf.as_slice()).unwrap(), test.expected, "{}", i);
+        }
+    }
+
+    #[test]
+    fn test_parse_pyon_string() {
+        struct Test {
+            s: &'static str,
+            expected: &'static str,
+            expect_error: bool,
+        }
+
+        let tests= vec![
+            Test {
+                s: "",
+                expected: "",
+                expect_error: true,
+            },
+            Test {
+                s: r#""""#,
+                expected: "",
+                expect_error: false,
+            },
+            Test {
+                s: r#""\n\"\\\x01""#,
+                expected: "\n\"\\\x01",
+                expect_error: false,
+            },
+            Test {
+                s: r#""a\x01a""#,
+                expected: "a\x01a",
+                expect_error: false,
+            },
+        ];
+
+        for (i, test) in tests.iter().enumerate() {
+            let result = parse_pyon_string(test.s.as_bytes());
+            assert_eq!(result.is_err(), test.expect_error, "{}", i);
+            if !test.expect_error {
+                assert_eq!(result.unwrap(), test.expected, "{}", i);
+            }
         }
     }
 }

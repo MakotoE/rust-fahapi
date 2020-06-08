@@ -4,8 +4,11 @@ lazy_static::lazy_static! {
     static ref API_INSTANCE: std::sync::Mutex<API> = {
         let api = API::connect_timeout(
             &API::default_addr(),
-            core::time::Duration::from_secs(1),
+            core::time::Duration::from_millis(100),
         ).unwrap();
+        api.conn.set_read_timeout(Some(core::time::Duration::from_millis(100))).unwrap();
+        api.conn.set_write_timeout(Some(core::time::Duration::from_millis(100))).unwrap();
+
         std::sync::Mutex::new(api)
     };
 }
