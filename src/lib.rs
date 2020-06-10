@@ -40,7 +40,7 @@ impl API {
     }
 
     /// Enables or disables log updates. Returns current log.
-    pub fn logUpdates(&mut self, arg: LogUpdatesArg) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn log_updates(&mut self, arg: LogUpdatesArg) -> Result<String, Box<dyn std::error::Error>> {
         /*
             This command is weird. It returns the log after the next prompt, like this:
             > log-updates start
@@ -52,7 +52,9 @@ impl API {
         exec(&mut self.conn, format!("log-updates {}", arg).as_str(), &mut self.buf)?;
         exec_eval(&mut self.conn, "eval", &mut self.buf)?;
 
-        unimplemented!()
+        // The string contains a bunch of \x00 sequences that are not valid JSON and cannot be
+	    // unmarshalled using unmarshalPyON().
+        parse_log(&self.buf)
     }
 }
 
@@ -74,9 +76,9 @@ pub enum LogUpdatesArg {
 impl std::fmt::Display for LogUpdatesArg {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         let s = match self {
-            LogUpdatesArg::Start => "Start",
-            LogUpdatesArg::Restart => "Restart",
-            LogUpdatesArg::Stop => "Stop",
+            LogUpdatesArg::Start => "start",
+            LogUpdatesArg::Restart => "restart",
+            LogUpdatesArg::Stop => "stop",
         };
         write!(f, "{}", s)
     }
@@ -149,6 +151,22 @@ fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> std::io::Resul
     }
 }
 
+fn parse_log(b: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
+    // The log looks like this: PyON 1 log-update\n"..."\n---\n\n
+    const SUFFIX: &[u8] = b"\n---\n\n";
+
+    let mut removed_suffix = b;
+    if b.len() > SUFFIX.len() && b[b.len() - SUFFIX.len()..] == *SUFFIX {
+        removed_suffix = &b[..b.len() - SUFFIX.len()]
+    }
+
+    let start_index = match b.iter().position(|b| *b == b'\n') {
+       Some(i) => i+1,
+       None => 0, 
+    };
+    parse_pyon_string(&removed_suffix[start_index..])
+}
+
 pub fn parse_pyon_string(b: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
     if b.len() < 2 || b[0] != b'"' || b[b.len() - 1] != b'"' {
         return Err(Box::new(Error::NotValidPyONString))
@@ -172,7 +190,7 @@ pub fn parse_pyon_string(b: &[u8]) -> Result<String, Box<dyn std::error::Error>>
                     
                     let s = match std::str::from_utf8(&capture[2..]) {
                         Ok(s) => s,
-                        Err(e) => return capture.to_vec(),
+                        Err(_) => return capture.to_vec(),
                     };
                     let n: u32 = str::parse(s).unwrap();
                     match std::char::from_u32(n) {
@@ -232,6 +250,61 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_log() {
+        struct Test {
+            s: &'static str,
+            expected: &'static str,
+            expect_error: bool,
+        }
+
+        let tests = vec![
+            Test{
+                s: "",
+                expected: "",
+                expect_error: true,
+            },
+            Test{
+                s: r#"PyON 1 log-update"#,
+                expected: "",
+                expect_error: true,
+            },
+            Test{
+                s: r#""""#,
+                expected: "",
+                expect_error: false,
+            },
+            Test{
+                s: r#"\n---\n\n"#,
+                expected: "",
+                expect_error: true,
+            },
+            Test{
+                s: "\n\"\"\n---\n\n",
+                expected: "",
+                expect_error: false,
+            },
+            Test{
+                s: "PyON 1 log-update\n\n---\n\n",
+                expected: "",
+                expect_error: true,
+            },
+            Test{
+                s: "PyON 1 log-update\n\"a\"\n---\n\n",
+                expected: "a",
+                expect_error: false,
+            },
+        ];
+
+        for (i, test) in tests.iter().enumerate() {
+            let result = parse_log(test.s.as_bytes());
+            assert_eq!(result.is_err(), test.expect_error, "{}", i);
+            if !test.expect_error {
+                assert_eq!(result.unwrap(), test.expected, "{}", i);
+            }
+        }
+    }
+
+    #[test]
     fn test_parse_pyon_string() {
         struct Test {
             s: &'static str,
@@ -240,22 +313,22 @@ mod tests {
         }
 
         let tests= vec![
-            Test {
+            Test{
                 s: "",
                 expected: "",
                 expect_error: true,
             },
-            Test {
+            Test{
                 s: r#""""#,
                 expected: "",
                 expect_error: false,
             },
-            Test {
+            Test{
                 s: r#""\n\"\\\x01""#,
                 expected: "\n\"\\\x01",
                 expect_error: false,
             },
-            Test {
+            Test{
                 s: r#""a\x01a""#,
                 expected: "a\x01a",
                 expect_error: false,

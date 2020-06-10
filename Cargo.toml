@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Makoto <makoto@emurasoft.com>"]
 edition = "2018"
 
+[features]
+all-tests = [] # Run tests that will modify your FAH settings
+
 [dependencies]
 snafu = "0.6.8"
 bytes = "0.5"
