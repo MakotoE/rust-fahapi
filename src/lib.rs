@@ -52,7 +52,7 @@ impl API {
         exec_eval(&mut self.conn, "eval", &mut self.buf)?;
 
         // The string contains a bunch of \x00 sequences that are not valid JSON and cannot be
-	    // unmarshalled using unmarshal_pyon().
+	    // parsed using parse_pyon().
         parse_log(&self.buf)
     }
 
@@ -66,6 +66,21 @@ impl API {
     pub fn always_on<N>(&mut self, slot: N) -> Result<(), Error> where N: std::fmt::Display {
         exec(&mut self.conn, format!("always_on {}", slot).as_str(), &mut self.buf)
     }
+
+    /// Returns true if the client has set a user, team or passkey.
+    pub fn configured(&mut self) -> Result<bool, Error> {
+        exec(&mut self.conn, "configured", &mut self.buf)?;
+
+        let s = match std::str::from_utf8(&mut self.buf) {
+            Ok(s) => s,
+            Err(e) => return Err(Error::Parse{msg: e.to_string()}),
+        };
+
+        match serde_json::from_str(pyon_to_json(s)?.as_str()) {
+            Ok(b) => Ok(b),
+            Err(e) => Err(Error::Parse{msg: e.to_string()})
+        }
+    }
 }
 
 #[derive(Debug, snafu::Snafu)]
@@ -73,12 +88,14 @@ pub enum Error {
     #[snafu(display("command contains newline"))]
     CommandContainsNewline,
 
-    #[snafu(display("not a valid PyON string"))]
-    NotValidPyONString,
-
     #[snafu(display("IO error: {}", e))]
     IO{
         e: std::io::Error,
+    },
+
+    #[snafu(display("parse error: {}", msg))]
+    Parse{
+        msg: String,
     },
 
     #[snafu(display("{}", msg))]
@@ -169,7 +186,7 @@ pub fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> std::io::R
     }
 }
 
-pub fn parse_log(b: &[u8]) -> Result<String, Error> {
+pub fn parse_log(b: &[u8]) -> Result<String, Error> { // TODO this should take a &str
     // The log looks like this: PyON 1 log-update\n"..."\n---\n\n
     const SUFFIX: &[u8] = b"\n---\n\n";
 
@@ -178,16 +195,16 @@ pub fn parse_log(b: &[u8]) -> Result<String, Error> {
         removed_suffix = &b[..b.len() - SUFFIX.len()]
     }
 
-    let start_index = match removed_suffix.iter().position(|b| *b == b'\n') {
+    let start = match removed_suffix.iter().position(|b| *b == b'\n') {
        Some(i) => i+1,
        None => 0, 
     };
-    parse_pyon_string(&removed_suffix[start_index..])
+    parse_pyon_string(&removed_suffix[start..])
 }
 
 pub fn parse_pyon_string(b: &[u8]) -> Result<String, Error> {
     if b.len() < 2 || b[0] != b'"' || b[b.len() - 1] != b'"' {
-        return Err(Error::NotValidPyONString)
+        return Err(Error::Parse{msg: "".to_string()})
     }
 
     lazy_static::lazy_static! {
@@ -230,6 +247,30 @@ pub fn parse_pyon_string(b: &[u8]) -> Result<String, Error> {
         Ok(s) => Ok(s.to_string()),
         Err(e) => Err(Error::Other{msg: e.to_string()}),
     }
+}
+
+pub fn pyon_to_json(s: &str) -> Result<String, Error> {
+    // https://pypi.org/project/pon/
+    const PREFIX: &str = "PyON";
+    const SUFFIX: &str = "\n---";
+    if s.len() < PREFIX.len() || &s[..PREFIX.len()] != PREFIX
+        || s.len() < SUFFIX.len() || &s[s.len()-SUFFIX.len()..] != SUFFIX {
+        return Err(Error::Parse{msg: format!("invalid PyON format: {}", s)})
+    }
+
+    let mut start = match s.find('\n') {
+        Some(i) => i+1,
+        None => 0, 
+    };
+    
+    let end = s.len() - SUFFIX.len();
+    if start > end {
+        start = end;
+    }
+
+    Ok(s[start..end].replace("None", "\"\"")
+        .replace("False", "false")
+        .replace("True", "true"))
 }
 
 #[cfg(test)]
@@ -358,6 +399,56 @@ mod tests {
 
         for (i, test) in tests.iter().enumerate() {
             let result = parse_pyon_string(test.b);
+            assert_eq!(result.is_err(), test.expect_error, "{}", i);
+            if !test.expect_error {
+                assert_eq!(result.unwrap(), test.expected, "{}", i);
+            }
+        }
+    }
+
+    #[test]
+    fn test_pyon_to_json() {
+        struct Test {
+            s: &'static str,
+            expected: &'static str,
+            expect_error: bool,
+        }
+
+        let tests = vec![
+            Test{
+                s: "",
+                expected: "",
+                expect_error: true,
+            },
+            Test{
+                s: "PyON",
+                expected: "",
+                expect_error: true,
+            },
+            Test{
+                s: "PyON\n---",
+                expected: "",
+                expect_error: false,
+            },
+            Test{
+                s: "PyON\n\n---",
+                expected: "",
+                expect_error: false,
+            },
+            Test{
+                s: "PyON\n1\n---",
+                expected: "1",
+                expect_error: false,
+            },
+            Test{
+                s: "PyON\nTrue\n---",
+                expected: "true",
+                expect_error: false,
+            },
+        ];
+
+        for (i, test) in tests.iter().enumerate() {
+            let result = pyon_to_json(test.s);
             assert_eq!(result.is_err(), test.expect_error, "{}", i);
             if !test.expect_error {
                 assert_eq!(result.unwrap(), test.expected, "{}", i);

@@ -40,6 +40,11 @@ fn test_always_on() {
 }
 
 #[test]
+fn test_configured() {
+    API_INSTANCE.lock().unwrap().configured().unwrap();
+}
+
+#[test]
 fn test_exec() {
     let mut api = API_INSTANCE.lock().unwrap();
     let mut buf: Vec<u8> = Vec::new();
