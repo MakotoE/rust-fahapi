@@ -16,8 +16,7 @@ impl API {
 
     /// Connects to your FAH client with a timeout. Use API::default_addr() to get the default
     /// address.
-    pub fn connect_timeout(addr: &net::SocketAddr, timeout: core::time::Duration) ->
-    std::io::Result<API> {
+    pub fn connect_timeout(addr: &net::SocketAddr, timeout: core::time::Duration) -> std::io::Result<API> {
         let mut conn = net::TcpStream::connect_timeout(addr, timeout)?;
         let mut buf: Vec<u8> = Vec::new();
 
@@ -31,16 +30,16 @@ impl API {
     }
 
     /// Returns a listing of the FAH API commands.
-    pub fn help(&mut self) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn help(&mut self) -> Result<String, Error> {
         exec(&mut self.conn, "help", &mut self.buf)?;
         match std::str::from_utf8(self.buf.as_slice()) {
             Ok(s) => Ok(s.to_string()),
-            Err(e) => Err(Box::new(e)),
+            Err(e) => Err(Error::Other{msg: e.to_string()}),
         }
     }
 
     /// Enables or disables log updates. Returns current log.
-    pub fn log_updates(&mut self, arg: LogUpdatesArg) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn log_updates(&mut self, arg: LogUpdatesArg) -> Result<String, Error> {
         /*
             This command is weird. It returns the log after the next prompt, like this:
             > log-updates start
@@ -53,18 +52,28 @@ impl API {
         exec_eval(&mut self.conn, "eval", &mut self.buf)?;
 
         // The string contains a bunch of \x00 sequences that are not valid JSON and cannot be
-	    // unmarshalled using unmarshalPyON().
+	    // unmarshalled using unmarshal_pyon().
         parse_log(&self.buf)
     }
 }
 
-#[derive(Debug, snafu::Snafu, Clone)]
+#[derive(Debug, snafu::Snafu)]
 pub enum Error {
     #[snafu(display("command contains newline"))]
     CommandContainsNewline,
 
     #[snafu(display("not a valid PyON string"))]
     NotValidPyONString,
+
+    #[snafu(display("IO error: {}", e))]
+    IO{
+        e: std::io::Error,
+    },
+
+    #[snafu(display("{}", msg))]
+    Other{
+        msg: String,
+    },
 }
 
 pub enum LogUpdatesArg {
@@ -85,7 +94,7 @@ impl std::fmt::Display for LogUpdatesArg {
 }
 
 /// Executes a command on the FAH client. The response is written to the buffer.
-pub fn exec(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn exec(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) -> Result<(), Error> {
     use std::io::Write;
 
     if command == "" {
@@ -95,19 +104,17 @@ pub fn exec(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) -> Resu
     }
 
     if command.contains("\n") {
-        return Err(Box::new(Error::CommandContainsNewline));
+        return Err(Error::CommandContainsNewline);
     }
 
-    conn.write_all(format!("{}\n", command).as_bytes())?;
-    match read_message(conn, buf) {
-        Ok(_) => Ok(()),
-        Err(e) => Err(Box::new(e)),
-    }
+    conn.write_all(format!("{}\n", command).as_bytes()).map_err(|e| Error::IO{e})?;
+
+    read_message(conn, buf).map_err(|e| Error::IO{e})
 }
 
 /// Executes commands which do not return a trailing newline. (Some commands don't end their message
 /// and cause infinite blocking.) The response is written to the buffer.
-pub fn exec_eval(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn exec_eval(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) -> Result<(), Error> {
     if command == "" {
         // FAH doesn't respond to an empty command
         buf.clear();
@@ -151,7 +158,7 @@ fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> std::io::Resul
     }
 }
 
-fn parse_log(b: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
+fn parse_log(b: &[u8]) -> Result<String, Error> {
     // The log looks like this: PyON 1 log-update\n"..."\n---\n\n
     const SUFFIX: &[u8] = b"\n---\n\n";
 
@@ -167,9 +174,9 @@ fn parse_log(b: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
     parse_pyon_string(&removed_suffix[start_index..])
 }
 
-pub fn parse_pyon_string(b: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
+pub fn parse_pyon_string(b: &[u8]) -> Result<String, Error> {
     if b.len() < 2 || b[0] != b'"' || b[b.len() - 1] != b'"' {
-        return Err(Box::new(Error::NotValidPyONString))
+        return Err(Error::NotValidPyONString)
     }
 
     lazy_static::lazy_static! {
@@ -207,7 +214,7 @@ pub fn parse_pyon_string(b: &[u8]) -> Result<String, Box<dyn std::error::Error>>
     
     match std::str::from_utf8(&*MATCH_ESCAPED.replace_all(&b[1..b.len()-1], replace_fn)) {
         Ok(s) => Ok(s.to_string()),
-        Err(e) => Err(Box::new(e)),
+        Err(e) => Err(Error::Other{msg: e.to_string()}),
     }
 }
 
