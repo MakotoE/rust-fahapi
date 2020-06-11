@@ -167,7 +167,7 @@ pub fn parse_log(b: &[u8]) -> Result<String, Error> {
         removed_suffix = &b[..b.len() - SUFFIX.len()]
     }
 
-    let start_index = match b.iter().position(|b| *b == b'\n') {
+    let start_index = match removed_suffix.iter().position(|b| *b == b'\n') {
        Some(i) => i+1,
        None => 0, 
     };
@@ -193,13 +193,16 @@ pub fn parse_pyon_string(b: &[u8]) -> Result<String, Error> {
                 b'"' => b"\"".to_vec(),
                 b'\\' => b"\\".to_vec(),
                 b'x' => {
-                    assert_eq!(capture.len(), 4);
-                    
                     let s = match std::str::from_utf8(&capture[2..]) {
                         Ok(s) => s,
                         Err(_) => return capture.to_vec(),
                     };
-                    let n: u32 = str::parse(s).unwrap();
+
+                    let n = match u32::from_str_radix(s, 16) {
+                        Ok(n) => n,
+                        Err(_) => return capture.to_vec(),
+                    };
+
                     match std::char::from_u32(n) {
                         Some(c) => c.to_string().as_str().as_bytes().to_vec(),
                         None => capture.to_vec(),
@@ -314,36 +317,36 @@ mod tests {
     #[test]
     fn test_parse_pyon_string() {
         struct Test {
-            s: &'static str,
+            b: &'static [u8],
             expected: &'static str,
             expect_error: bool,
         }
 
         let tests= vec![
             Test{
-                s: "",
+                b: b"",
                 expected: "",
                 expect_error: true,
             },
             Test{
-                s: r#""""#,
+                b: br#""""#,
                 expected: "",
                 expect_error: false,
             },
             Test{
-                s: r#""\n\"\\\x01""#,
+                b: br#""\n\"\\\x01""#,
                 expected: "\n\"\\\x01",
                 expect_error: false,
             },
             Test{
-                s: r#""a\x01a""#,
+                b: br#""a\x01a""#,
                 expected: "a\x01a",
                 expect_error: false,
             },
         ];
 
         for (i, test) in tests.iter().enumerate() {
-            let result = parse_pyon_string(test.s.as_bytes());
+            let result = parse_pyon_string(test.b);
             assert_eq!(result.is_err(), test.expect_error, "{}", i);
             if !test.expect_error {
                 assert_eq!(result.unwrap(), test.expected, "{}", i);
