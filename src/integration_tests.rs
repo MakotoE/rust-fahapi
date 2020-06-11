@@ -28,6 +28,18 @@ fn test_log_updates() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "all-tests"), ignore)]
+fn test_screensaver() {
+    API_INSTANCE.lock().unwrap().screensaver().unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "all-tests"), ignore)]
+fn test_always_on() {
+    API_INSTANCE.lock().unwrap().always_on(0).unwrap();
+}
+
+#[test]
 fn test_exec() {
     let mut api = API_INSTANCE.lock().unwrap();
     let mut buf: Vec<u8> = Vec::new();

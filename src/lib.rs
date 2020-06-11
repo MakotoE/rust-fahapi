@@ -55,6 +55,17 @@ impl API {
 	    // unmarshalled using unmarshal_pyon().
         parse_log(&self.buf)
     }
+
+    /// Unpauses all slots which are paused waiting for a screensaver and pause them again on
+    /// disconnect.
+    pub fn screensaver(&mut self) -> Result<(), Error> {
+        exec(&mut self.conn, "screensaver", &mut self.buf)
+    }
+
+    /// Sets a slot to be always on.
+    pub fn always_on<N>(&mut self, slot: N) -> Result<(), Error> where N: std::fmt::Display {
+        exec(&mut self.conn, format!("always_on {}", slot).as_str(), &mut self.buf)
+    }
 }
 
 #[derive(Debug, snafu::Snafu)]
