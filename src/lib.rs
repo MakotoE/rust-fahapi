@@ -133,7 +133,7 @@ pub fn exec_eval(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) ->
     Ok(())
 }
 
-fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> std::io::Result<()> {
+pub fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> std::io::Result<()> {
     buf.clear();
     loop {
         let mut b: [u8; 1] = [0];
@@ -158,7 +158,7 @@ fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> std::io::Resul
     }
 }
 
-fn parse_log(b: &[u8]) -> Result<String, Error> {
+pub fn parse_log(b: &[u8]) -> Result<String, Error> {
     // The log looks like this: PyON 1 log-update\n"..."\n---\n\n
     const SUFFIX: &[u8] = b"\n---\n\n";
 
@@ -225,85 +225,85 @@ mod tests {
     #[test]
     fn test_read_message() {
         struct Test {
-            s: &'static str,
-            expected: &'static str,
+            s: &'static [u8],
+            expected: &'static [u8],
         }
 
         let tests = vec![
             Test{
-                s: "\n> ",
-                expected: "",
+                s: b"\n> ",
+                expected: b"",
             },
             Test{
-                s: "a\n> ",
-                expected: "a",
+                s: b"a\n> ",
+                expected: b"a",
             },
             Test{
-                s: "a\n> \n> ",
-                expected: "a",
+                s: b"a\n> \n> ",
+                expected: b"a",
             },
             Test{
-                s: "\na\n> ",
-                expected: "a",
+                s: b"\na\n> ",
+                expected: b"a",
             },
         ];
 
         let mut buf: Vec<u8> = Vec::new();
         for (i, test) in tests.iter().enumerate() {
             use bytes::buf::ext::BufExt;
-            read_message(&mut bytes::Bytes::from(test.s).reader(), &mut buf).unwrap();
-            assert_eq!(std::str::from_utf8(buf.as_slice()).unwrap(), test.expected, "{}", i);
+            read_message(&mut bytes::Bytes::from_static(test.s).reader(), &mut buf).unwrap();
+            assert_eq!(buf.as_slice(), test.expected, "{}", i);
         }
     }
 
     #[test]
     fn test_parse_log() {
         struct Test {
-            s: &'static str,
+            b: &'static [u8],
             expected: &'static str,
             expect_error: bool,
         }
 
         let tests = vec![
             Test{
-                s: "",
+                b: b"",
                 expected: "",
                 expect_error: true,
             },
             Test{
-                s: r#"PyON 1 log-update"#,
+                b: br#"PyON 1 log-update"#,
                 expected: "",
                 expect_error: true,
             },
             Test{
-                s: r#""""#,
+                b: br#""""#,
                 expected: "",
                 expect_error: false,
             },
             Test{
-                s: r#"\n---\n\n"#,
+                b: br#"\n---\n\n"#,
                 expected: "",
                 expect_error: true,
             },
             Test{
-                s: "\n\"\"\n---\n\n",
+                b: b"\n\"\"\n---\n\n",
                 expected: "",
                 expect_error: false,
             },
             Test{
-                s: "PyON 1 log-update\n\n---\n\n",
+                b: b"PyON 1 log-update\n\n---\n\n",
                 expected: "",
                 expect_error: true,
             },
             Test{
-                s: "PyON 1 log-update\n\"a\"\n---\n\n",
+                b: b"PyON 1 log-update\n\"a\"\n---\n\n",
                 expected: "a",
                 expect_error: false,
             },
         ];
 
         for (i, test) in tests.iter().enumerate() {
-            let result = parse_log(test.s.as_bytes());
+            let result = parse_log(test.b);
             assert_eq!(result.is_err(), test.expect_error, "{}", i);
             if !test.expect_error {
                 assert_eq!(result.unwrap(), test.expected, "{}", i);

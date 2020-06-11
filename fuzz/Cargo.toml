@@ -1,0 +1,33 @@
+
+[package]
+name = "fahapi-fuzz"
+version = "0.0.0"
+authors = ["Makoto"]
+publish = false
+edition = "2018"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.3"
+bytes = "0.5"
+
+[dependencies.fahapi]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "read_message"
+path = "fuzz_targets/read_message.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "parse_log"
+path = "fuzz_targets/parse_log.rs"
+test = false
+doc = false
