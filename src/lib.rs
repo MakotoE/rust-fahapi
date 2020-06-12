@@ -86,6 +86,67 @@ impl API {
             Err(e) => Err(Error::Parse{msg: e.to_string()})
         }
     }
+
+    /// Runs one client cycle.
+    pub fn do_cycle(&mut self) -> Result<(), Error> {
+        exec(&mut self.conn, "do-cycle", &mut self.buf)
+    }
+
+    /// Downloads a core. NOT TESTED.
+    pub fn download_core(&mut self, core_type: &str, url: &str) -> Result<(), Error> {
+        let command = format!("download-core {} {}", core_type, url);
+        exec(&mut self.conn, command.as_str(), &mut self.buf)
+    }
+
+    /// Pauses a slot when its current work unit is completed.
+    pub fn finish<N>(&mut self, slot: N) -> Result<(), Error> where N: std::fmt::Display {
+        exec(&mut self.conn, format!("finish {}", slot).as_str(), &mut self.buf)
+    }
+
+    /// Pauses all slots one-by-one when their current work unit is completed.
+    pub fn finish_all(&mut self) -> Result<(), Error> {
+        exec(&mut self.conn, "finish", &mut self.buf)
+    }
+
+    /// Returns FAH build and machine info.
+    pub fn info(&mut self) -> Result<serde_json::Value, Error> { // TODO create info_struct() to output structured data
+        exec(&mut self.conn, "info", &mut self.buf)?;
+
+        let s = match std::str::from_utf8(&mut self.buf) {
+            Ok(s) => s,
+            Err(e) => return Err(Error::Parse{msg: e.to_string()}),
+        };
+
+        match serde_json::from_str(pyon_to_json(s)?.as_str()) {
+            Ok(b) => Ok(b),
+            Err(e) => Err(Error::Parse{msg: e.to_string()})
+        }
+    }
+
+    /// Returns the number of slots.
+    pub fn num_slots(&mut self) -> Result<i32, Error> {
+        exec(&mut self.conn, "num-slots", &mut self.buf)?;
+
+        let s = match std::str::from_utf8(&mut self.buf) {
+            Ok(s) => s,
+            Err(e) => return Err(Error::Parse{msg: e.to_string()}),
+        };
+
+        match serde_json::from_str(pyon_to_json(s)?.as_str()) {
+            Ok(b) => Ok(b),
+            Err(e) => Err(Error::Parse{msg: e.to_string()})
+        }
+    }
+
+    /// Sets a slot to run only when idle.
+    pub fn on_idle<N>(&mut self, slot: N) -> Result<(), Error> where N: std::fmt::Display {
+        exec(&mut self.conn, format!("on_idle {}", slot).as_str(), &mut self.buf)
+    }
+
+    /// Sets all slots to run only when idle.
+    pub fn on_idle_all(&mut self) -> Result<(), Error> {
+        exec(&mut self.conn, "on_idle", &mut self.buf)
+    }
 }
 
 #[derive(Debug, snafu::Snafu)]
@@ -265,7 +326,7 @@ pub fn pyon_to_json(s: &str) -> Result<String, Error> {
         start = end;
     }
 
-    Ok(s[start..end].replace("None", "\"\"")
+    Ok(s[start..end].replace("None", "\"\"") // TODO optimize
         .replace("False", "false")
         .replace("True", "true"))
 }

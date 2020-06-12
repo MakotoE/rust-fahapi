@@ -45,6 +45,47 @@ fn test_configured() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "all-tests"), ignore)]
+fn test_do_cycle() {
+    API_INSTANCE.lock().unwrap().do_cycle().unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "all-tests"), ignore)]
+fn test_finish() {
+    API_INSTANCE.lock().unwrap().finish(0).unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "all-tests"), ignore)]
+fn test_finish_all() {
+    API_INSTANCE.lock().unwrap().finish_all().unwrap();
+}
+
+#[test]
+fn test_info() {
+    let result = API_INSTANCE.lock().unwrap().info().unwrap();
+    assert!(result.as_array().unwrap().len() > 0)
+}
+
+#[test]
+fn test_num_slots() {
+    API_INSTANCE.lock().unwrap().num_slots().unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "all-tests"), ignore)]
+fn test_on_idle() {
+    API_INSTANCE.lock().unwrap().on_idle(0).unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "all-tests"), ignore)]
+fn test_on_idle_all() {
+    API_INSTANCE.lock().unwrap().on_idle_all().unwrap();
+}
+
+#[test]
 fn test_exec() {
     let mut api = API_INSTANCE.lock().unwrap();
     let mut buf: Vec<u8> = Vec::new();
