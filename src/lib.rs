@@ -144,6 +144,13 @@ impl API {
     pub fn pause_slot(&mut self, slot: i32) -> Result<(), Error> {
         exec(&mut self.conn, format!("pause {}", slot).as_str(), &mut self.buf)
     }
+
+    // Returns the total estimated points per day.
+    pub fn ppd(&mut self) -> Result<f64, Error> {
+        exec(&mut self.conn, "ppd", &mut self.buf)?;
+        let s = std::str::from_utf8(&mut self.buf)?;
+        Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
+    }
 }
 
 #[derive(Debug, snafu::Snafu)]
