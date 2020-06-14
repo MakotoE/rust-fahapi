@@ -64,7 +64,7 @@ impl API {
     }
 
     /// Sets a slot to be always on.
-    pub fn always_on<N>(&mut self, slot: N) -> Result<(), Error> where N: std::fmt::Display {
+    pub fn always_on(&mut self, slot: i32) -> Result<(), Error> {
         exec(&mut self.conn, format!("always_on {}", slot).as_str(), &mut self.buf)
     }
 
@@ -81,7 +81,7 @@ impl API {
     }
 
     /// Pauses a slot when its current work unit is completed.
-    pub fn finish<N>(&mut self, slot: N) -> Result<(), Error> where N: std::fmt::Display {
+    pub fn finish_slot(&mut self, slot: i32) -> Result<(), Error> {
         exec(&mut self.conn, format!("finish {}", slot).as_str(), &mut self.buf)
     }
 
@@ -121,6 +121,7 @@ impl API {
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
+    /// Sets an option.
     pub fn options_set<N>(&mut self, key: &str, value: N) -> Result<(), Error> where N: std::fmt::Display {
         let value_str = format!("{}", value);
 
@@ -132,6 +133,16 @@ impl API {
 
         let command = format!("options {}={}", key, value_str);
         exec(&mut self.conn, command.as_str(), &mut self.buf)
+    }
+
+    /// Pauses all slots.
+    pub fn pause_all(&mut self) -> Result<(), Error> {
+        exec(&mut self.conn, "pause", &mut self.buf)
+    }
+
+    /// Pauses a slot.
+    pub fn pause_slot(&mut self, slot: i32) -> Result<(), Error> {
+        exec(&mut self.conn, format!("pause {}", slot).as_str(), &mut self.buf)
     }
 }
 

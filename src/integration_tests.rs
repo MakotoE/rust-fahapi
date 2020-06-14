@@ -53,7 +53,7 @@ fn test_do_cycle() {
 #[test]
 #[cfg_attr(not(feature = "all-tests"), ignore)]
 fn test_finish() {
-    API_INSTANCE.lock().unwrap().finish(0).unwrap();
+    API_INSTANCE.lock().unwrap().finish_slot(0).unwrap();
 }
 
 #[test]
@@ -100,6 +100,13 @@ fn test_options_set_get() {
     assert_eq!(new_options.power, Power::PowerLight);
 
     api.options_set("power", old_options.power).unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "all-tests"), ignore)]
+fn test_pause_unpause() {
+    let mut api = API_INSTANCE.lock().unwrap();
+    api.pause_all().unwrap();
 }
 
 #[test]
