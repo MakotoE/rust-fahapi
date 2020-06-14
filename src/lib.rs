@@ -1,5 +1,8 @@
 use std::net;
 
+mod types;
+pub use types::{Options};
+
 pub struct API {
     pub conn: net::TcpStream,
     pub buf: Vec<u8>,
@@ -146,6 +149,21 @@ impl API {
     /// Sets all slots to run only when idle.
     pub fn on_idle_all(&mut self) -> Result<(), Error> {
         exec(&mut self.conn, "on_idle", &mut self.buf)
+    }
+
+    /// Returns the FAH client options.
+    pub fn options_get(&mut self) -> Result<Options, Error> {
+        exec(&mut self.conn, "options -a", &mut self.buf)?;
+
+        let s = match std::str::from_utf8(&mut self.buf) {
+            Ok(s) => s,
+            Err(e) => return Err(Error::Parse{msg: e.to_string()}),
+        };
+
+        match serde_json::from_str(pyon_to_json(s)?.as_str()) {
+            Ok(b) => Ok(b),
+            Err(e) => Err(Error::Parse{msg: e.to_string()})
+        }
     }
 }
 

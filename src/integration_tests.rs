@@ -86,6 +86,13 @@ fn test_on_idle_all() {
 }
 
 #[test]
+fn test_options_set_get() {
+    let mut api = API_INSTANCE.lock().unwrap();
+    let result = api.options_get().unwrap();
+    assert!(result.log.len() > 0);
+}
+
+#[test]
 fn test_exec() {
     let mut api = API_INSTANCE.lock().unwrap();
     let mut buf: Vec<u8> = Vec::new();
