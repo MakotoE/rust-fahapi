@@ -88,8 +88,17 @@ fn test_on_idle_all() {
 #[test]
 fn test_options_set_get() {
     let mut api = API_INSTANCE.lock().unwrap();
-    let result = api.options_get().unwrap();
-    assert!(result.log.len() > 0);
+    assert!(api.options_set("power=", "").is_err());
+
+    let old_options = api.options_get().unwrap();
+    assert!(old_options.log.len() > 0);
+
+    api.options_set("power", "LIGHT").unwrap();
+
+    let new_options = api.options_get().unwrap();
+    assert_eq!(new_options.power, "LIGHT");
+
+    api.options_set("power", old_options.power).unwrap();
 }
 
 #[test]

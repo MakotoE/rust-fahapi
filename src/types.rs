@@ -125,11 +125,17 @@ pub struct Options {
     pub web_enable: StringBool,
 }
 
-pub struct StringBool(bool);
+pub struct StringBool(pub bool);
 
 impl std::default::Default for StringBool {
     fn default() -> Self {
         Self(false)
+    }
+}
+
+impl std::fmt::Display for StringBool {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

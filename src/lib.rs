@@ -1,7 +1,7 @@
 use std::net;
 
 mod types;
-pub use types::{Options};
+pub use types::{Options, StringBool};
 
 pub struct API {
     pub conn: net::TcpStream,
@@ -118,6 +118,19 @@ impl API {
         exec(&mut self.conn, "options -a", &mut self.buf)?;
         let s = std::str::from_utf8(&mut self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
+    }
+
+    pub fn options_set<N>(&mut self, key: &str, value: N) -> Result<(), Error> where N: std::fmt::Display {
+        let value_str = format!("{}", value);
+
+        if key.contains(&['=', ' ', '!'] as &[char]) || value_str.contains(' ') {
+            return Err(Error::Other{
+                msg: format!("key or value contains bad character: {}={}", key, value),
+            })
+        }
+
+        let command = format!("options {}={}", key, value_str);
+        exec(&mut self.conn, command.as_str(), &mut self.buf)
     }
 }
 
