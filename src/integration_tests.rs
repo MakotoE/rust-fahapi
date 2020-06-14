@@ -86,17 +86,18 @@ fn test_on_idle_all() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "all-tests"), ignore)]
 fn test_options_set_get() {
     let mut api = API_INSTANCE.lock().unwrap();
-    assert!(api.options_set("power=", "").is_err());
+    assert!(api.options_set("power=", Power::PowerNull).is_err());
 
     let old_options = api.options_get().unwrap();
     assert!(old_options.log.len() > 0);
 
-    api.options_set("power", "LIGHT").unwrap();
+    api.options_set("power", Power::PowerLight).unwrap();
 
     let new_options = api.options_get().unwrap();
-    assert_eq!(new_options.power, "LIGHT");
+    assert_eq!(new_options.power, Power::PowerLight);
 
     api.options_set("power", old_options.power).unwrap();
 }

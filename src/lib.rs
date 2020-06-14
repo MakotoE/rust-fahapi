@@ -1,8 +1,9 @@
 use std::net;
 
 mod types;
-pub use types::{Options, StringBool};
+pub use types::{Options, StringBool, StringInt, Power};
 
+#[derive(Debug)]
 pub struct API {
     pub conn: net::TcpStream,
     pub buf: Vec<u8>,
