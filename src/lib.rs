@@ -35,10 +35,7 @@ impl API {
     /// Returns a listing of the FAH API commands.
     pub fn help(&mut self) -> Result<String, Error> {
         exec(&mut self.conn, "help", &mut self.buf)?;
-        match std::str::from_utf8(self.buf.as_slice()) {
-            Ok(s) => Ok(s.to_string()),
-            Err(e) => Err(Error::Other{msg: e.to_string()}),
-        }
+        Ok(std::str::from_utf8(self.buf.as_slice())?.to_string())
     }
 
     /// Enables or disables log updates. Returns current log.
@@ -54,14 +51,9 @@ impl API {
         exec(&mut self.conn, format!("log-updates {}", arg).as_str(), &mut self.buf)?;
         exec_eval(&mut self.conn, "eval", &mut self.buf)?;
 
-        let s = match std::str::from_utf8(&mut self.buf) {
-            Ok(s) => s,
-            Err(e) => return Err(Error::Parse{msg: e.to_string()}),
-        };
-
         // The string contains a bunch of \x00 sequences that are not valid JSON and cannot be
 	    // parsed using parse_pyon().
-        parse_log(s)
+        parse_log(std::str::from_utf8(&mut self.buf)?)
     }
 
     /// Unpauses all slots which are paused waiting for a screensaver and pause them again on
@@ -78,27 +70,13 @@ impl API {
     /// Returns true if the client has set a user, team or passkey.
     pub fn configured(&mut self) -> Result<bool, Error> {
         exec(&mut self.conn, "configured", &mut self.buf)?;
-
-        let s = match std::str::from_utf8(&mut self.buf) {
-            Ok(s) => s,
-            Err(e) => return Err(Error::Parse{msg: e.to_string()}),
-        };
-
-        match serde_json::from_str(pyon_to_json(s)?.as_str()) {
-            Ok(b) => Ok(b),
-            Err(e) => Err(Error::Parse{msg: e.to_string()})
-        }
+        let s = std::str::from_utf8(&mut self.buf)?;
+        Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
     /// Runs one client cycle.
     pub fn do_cycle(&mut self) -> Result<(), Error> {
         exec(&mut self.conn, "do-cycle", &mut self.buf)
-    }
-
-    /// Downloads a core. NOT TESTED.
-    pub fn download_core(&mut self, core_type: &str, url: &str) -> Result<(), Error> {
-        let command = format!("download-core {} {}", core_type, url);
-        exec(&mut self.conn, command.as_str(), &mut self.buf)
     }
 
     /// Pauses a slot when its current work unit is completed.
@@ -114,31 +92,15 @@ impl API {
     /// Returns FAH build and machine info.
     pub fn info(&mut self) -> Result<serde_json::Value, Error> { // TODO create info_struct() to output structured data
         exec(&mut self.conn, "info", &mut self.buf)?;
-
-        let s = match std::str::from_utf8(&mut self.buf) {
-            Ok(s) => s,
-            Err(e) => return Err(Error::Parse{msg: e.to_string()}),
-        };
-
-        match serde_json::from_str(pyon_to_json(s)?.as_str()) {
-            Ok(b) => Ok(b),
-            Err(e) => Err(Error::Parse{msg: e.to_string()})
-        }
+        let s = std::str::from_utf8(&mut self.buf)?;
+        Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
     /// Returns the number of slots.
     pub fn num_slots(&mut self) -> Result<i32, Error> {
         exec(&mut self.conn, "num-slots", &mut self.buf)?;
-
-        let s = match std::str::from_utf8(&mut self.buf) {
-            Ok(s) => s,
-            Err(e) => return Err(Error::Parse{msg: e.to_string()}),
-        };
-
-        match serde_json::from_str(pyon_to_json(s)?.as_str()) {
-            Ok(b) => Ok(b),
-            Err(e) => Err(Error::Parse{msg: e.to_string()})
-        }
+        let s = std::str::from_utf8(&mut self.buf)?;
+        Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
     /// Sets a slot to run only when idle.
@@ -154,16 +116,8 @@ impl API {
     /// Returns the FAH client options.
     pub fn options_get(&mut self) -> Result<Options, Error> {
         exec(&mut self.conn, "options -a", &mut self.buf)?;
-
-        let s = match std::str::from_utf8(&mut self.buf) {
-            Ok(s) => s,
-            Err(e) => return Err(Error::Parse{msg: e.to_string()}),
-        };
-
-        match serde_json::from_str(pyon_to_json(s)?.as_str()) {
-            Ok(b) => Ok(b),
-            Err(e) => Err(Error::Parse{msg: e.to_string()})
-        }
+        let s = std::str::from_utf8(&mut self.buf)?;
+        Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 }
 
@@ -186,6 +140,18 @@ pub enum Error {
     Other{
         msg: String,
     },
+}
+
+impl From<std::str::Utf8Error> for Error {
+    fn from(e: std::str::Utf8Error) -> Self {
+        Error::Parse{msg: e.to_string()}
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(e: serde_json::Error) -> Self {
+        Error::Parse{msg: e.to_string()}
+    }
 }
 
 pub enum LogUpdatesArg {
