@@ -1,7 +1,7 @@
 use std::net;
 
 mod types;
-pub use types::{Options, StringBool, StringInt, Power};
+pub use types::*;
 
 #[derive(Debug)]
 pub struct API {
@@ -64,7 +64,7 @@ impl API {
     }
 
     /// Sets a slot to be always on.
-    pub fn always_on(&mut self, slot: i32) -> Result<(), Error> {
+    pub fn always_on(&mut self, slot: i64) -> Result<(), Error> {
         exec(&mut self.conn, format!("always_on {}", slot).as_str(), &mut self.buf)
     }
 
@@ -81,7 +81,7 @@ impl API {
     }
 
     /// Pauses a slot when its current work unit is completed.
-    pub fn finish_slot(&mut self, slot: i32) -> Result<(), Error> {
+    pub fn finish_slot(&mut self, slot: i64) -> Result<(), Error> {
         exec(&mut self.conn, format!("finish {}", slot).as_str(), &mut self.buf)
     }
 
@@ -98,7 +98,7 @@ impl API {
     }
 
     /// Returns the number of slots.
-    pub fn num_slots(&mut self) -> Result<i32, Error> {
+    pub fn num_slots(&mut self) -> Result<i64, Error> {
         exec(&mut self.conn, "num-slots", &mut self.buf)?;
         let s = std::str::from_utf8(&mut self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
@@ -141,13 +141,19 @@ impl API {
     }
 
     /// Pauses a slot.
-    pub fn pause_slot(&mut self, slot: i32) -> Result<(), Error> {
+    pub fn pause_slot(&mut self, slot: i64) -> Result<(), Error> {
         exec(&mut self.conn, format!("pause {}", slot).as_str(), &mut self.buf)
     }
 
     // Returns the total estimated points per day.
     pub fn ppd(&mut self) -> Result<f64, Error> {
         exec(&mut self.conn, "ppd", &mut self.buf)?;
+        let s = std::str::from_utf8(&mut self.buf)?;
+        Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
+    }
+
+    pub fn queue_info(&mut self) -> Result<Vec<SlotQueueInfo>, Error> {
+        exec(&mut self.conn, "queue-info", &mut self.buf)?;
         let s = std::str::from_utf8(&mut self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }

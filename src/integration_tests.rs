@@ -110,6 +110,16 @@ fn test_pause_unpause() {
 }
 
 #[test]
+fn test_ppd() {
+    API_INSTANCE.lock().unwrap().ppd().unwrap();
+}
+
+#[test]
+fn test_queue_info() {
+    API_INSTANCE.lock().unwrap().queue_info().unwrap();
+}
+
+#[test]
 fn test_exec() {
     let mut api = API_INSTANCE.lock().unwrap();
     let mut buf: Vec<u8> = Vec::new();

@@ -152,10 +152,10 @@ impl<'de> serde::de::Deserialize<'de> for StringBool {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
-pub struct StringInt(pub i32);
+pub struct StringInt(pub i64);
 
-impl From<i32> for StringInt {
-    fn from(n: i32) -> Self {
+impl From<i64> for StringInt {
+    fn from(n: i64) -> Self {
         Self(n)
     }
 }
@@ -224,5 +224,96 @@ impl<'de> serde::de::Deserialize<'de> for Power {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
         Self::new(serde::de::Deserialize::deserialize(deserializer)?)
             .map_err(|e| serde::de::Error::custom(e.to_string()))
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "kebab-case", default)]
+pub struct SlotQueueInfo {
+    pub id: String,
+    pub state: String,
+    pub error: String,
+    pub project: i64,
+    pub run: i64,
+    pub clone: i64,
+    pub gen: i64,
+    pub core: String,
+    pub unit: String,
+    pub percent_done: String,
+    pub eta: FAHDuration,
+    pub ppd: StringInt,
+    pub credit_estimate: StringInt,
+    pub waiting_on: String,
+    pub next_attempt: FAHDuration,
+    pub time_remaining: FAHDuration,
+    pub total_frames: i64,
+    pub frames_done: i64,
+    pub assigned: FAHTime,
+    pub timeout: FAHTime,
+    pub deadline: FAHTime,
+    pub ws: String,
+    pub cs: String,
+    pub attempts: i64,
+    pub slot: String,
+    pub tpf: FAHDuration,
+    pub base_credit: StringInt,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
+pub struct FAHTime(pub Option<chrono::DateTime<chrono::offset::Utc>>);
+
+impl From<Option<chrono::DateTime<chrono::offset::Utc>>> for FAHTime {
+    fn from(t: Option<chrono::DateTime<chrono::offset::Utc>>) -> Self {
+        Self(t)
+    }
+}
+
+impl From<chrono::DateTime<chrono::offset::Utc>> for FAHTime {
+    fn from(t: chrono::DateTime<chrono::offset::Utc>) -> Self {
+        Self(Some(t))
+    }
+}
+
+impl<'de> serde::de::Deserialize<'de> for FAHTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
+        let s = serde::de::Deserialize::deserialize(deserializer)?;
+        if s == "<invalid>" {
+            return Ok(None.into());
+        }
+
+        match chrono::DateTime::parse_from_rfc3339(s) {
+            Ok(t) => Ok(t.with_timezone(&chrono::offset::Utc).into()),
+            Err(e) => Err(serde::de::Error::custom(e.to_string())),
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
+pub struct FAHDuration(pub Option<chrono::Duration>);
+
+impl From<Option<chrono::Duration>> for FAHDuration {
+    fn from(d: Option<chrono::Duration>) -> Self {
+        Self(d)
+    }
+}
+
+impl From<chrono::Duration> for FAHDuration {
+    fn from(d: chrono::Duration) -> Self {
+        Self(Some(d))
+    }
+}
+
+impl<'de> serde::de::Deserialize<'de> for FAHDuration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
+        let s = serde::de::Deserialize::deserialize(deserializer)?;
+        match parse_duration::parse(s) {
+            Ok(d) => {
+                match chrono::Duration::from_std(d) {
+                    Ok(d) => Ok(d.into()),
+                    Err(e) => Err(serde::de::Error::custom(e.to_string()))
+                }
+            },
+            Err(e) => Err(serde::de::Error::custom(e.to_string()))
+        }
     }
 }
