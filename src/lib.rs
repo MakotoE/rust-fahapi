@@ -9,7 +9,7 @@ pub struct API {
     pub buf: Vec<u8>,
 }
 
-impl API {
+impl API { // TODO make async
     /// Default TCP address of the FAH client.
     pub fn default_addr() -> net::SocketAddr {
         net::SocketAddr::V4(net::SocketAddrV4::new(net::Ipv4Addr::LOCALHOST, 36330))
@@ -226,14 +226,18 @@ impl API {
     /// Returns FAH uptime.
     pub fn uptime(&mut self) -> Result<FAHDuration, Error> {
         exec_eval(&mut self.conn, "uptime", &mut self.buf)?;
-        let s = std::str::from_utf8(&mut self.buf)?;
-        match parse_duration::parse(s) {
+        match parse_duration::parse(std::str::from_utf8(&mut self.buf)?) {
             Ok(d) => match chrono::Duration::from_std(d) {
                 Ok(d) => Ok(d.into()),
                 Err(e) => Err(Error::Parse{msg: e.to_string()}),
             },
             Err(e) => Err(Error::Parse{msg: e.to_string()}),
         }
+    }
+
+    /// Blocks until all slots are paused.
+    pub fn wait_for_units(&mut self) -> Result<(), Error> {
+        exec(&mut self.conn, "wait-for-units", &mut self.buf)
     }
 }
 
