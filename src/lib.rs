@@ -212,6 +212,29 @@ impl API {
         let s = std::str::from_utf8(&mut self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
+
+    /// Unpauses all slots.
+    pub fn unpause_all(&mut self) -> Result<(), Error> {
+        exec(&mut self.conn, "unpause", &mut self.buf)
+    }
+
+    /// Unpauses a slot.
+    pub fn unpause_slot(&mut self, slot: i64) -> Result<(), Error> {
+        exec(&mut self.conn, format!("unpause {}", slot).as_str(), &mut self.buf)
+    }
+
+    /// Returns FAH uptime.
+    pub fn uptime(&mut self) -> Result<FAHDuration, Error> {
+        exec_eval(&mut self.conn, "uptime", &mut self.buf)?;
+        let s = std::str::from_utf8(&mut self.buf)?;
+        match parse_duration::parse(s) {
+            Ok(d) => match chrono::Duration::from_std(d) {
+                Ok(d) => Ok(d.into()),
+                Err(e) => Err(Error::Parse{msg: e.to_string()}),
+            },
+            Err(e) => Err(Error::Parse{msg: e.to_string()}),
+        }
+    }
 }
 
 #[derive(Debug, snafu::Snafu)]

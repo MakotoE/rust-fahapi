@@ -109,6 +109,9 @@ fn test_options_set_get() {
 fn test_pause_unpause() {
     let mut api = API_INSTANCE.lock().unwrap();
     api.pause_all().unwrap();
+    api.pause_slot(0).unwrap();
+    api.unpause_all().unwrap();
+    api.unpause_slot(0).unwrap();
 }
 
 #[test]
@@ -141,6 +144,11 @@ fn test_simulation_info() {
 #[test]
 fn test_slot_info() {
     API_INSTANCE.lock().unwrap().slot_info().unwrap();
+}
+
+#[test]
+fn test_uptime() {
+    API_INSTANCE.lock().unwrap().uptime().unwrap();
 }
 
 #[test]

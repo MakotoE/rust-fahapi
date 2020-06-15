@@ -272,6 +272,7 @@ pub struct SlotQueueInfo {
     pub base_credit: StringInt,
 }
 
+/// None means invalid time.
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
 pub struct FAHTime(pub Option<chrono::DateTime<chrono::offset::Utc>>);
 
@@ -287,13 +288,24 @@ impl From<chrono::DateTime<chrono::offset::Utc>> for FAHTime {
     }
 }
 
+const INVALID_TIME: &str = "<invalid>";
+
+impl std::fmt::Display for FAHTime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            Some(t) => write!(f, "{}", t),
+            None => write!(f, "{}", INVALID_TIME),
+        }
+    }
+}
+
 impl<'de> serde::de::Deserialize<'de> for FAHTime {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         let s = serde::de::Deserialize::deserialize(deserializer)?;
-        if s == "<invalid>" {
+        if s == INVALID_TIME {
             return Ok(None.into());
         }
 
@@ -304,6 +316,7 @@ impl<'de> serde::de::Deserialize<'de> for FAHTime {
     }
 }
 
+/// None means unknown duration.
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
 pub struct FAHDuration(pub Option<chrono::Duration>);
 
@@ -319,12 +332,27 @@ impl From<chrono::Duration> for FAHDuration {
     }
 }
 
+const UNKNOWN_TIME: &str = "unknowntime";
+
+impl std::fmt::Display for FAHDuration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            Some(d) => write!(f, "{}", d),
+            None => write!(f, "{}", UNKNOWN_TIME),
+        }
+    }
+}
+
 impl<'de> serde::de::Deserialize<'de> for FAHDuration {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         let s = serde::de::Deserialize::deserialize(deserializer)?;
+        if s == UNKNOWN_TIME {
+            return Ok(None.into());
+        }
+
         // TODO don't rely on parse_duration since it has a terrible worst-case performance
         match parse_duration::parse(s) {
             Ok(d) => match chrono::Duration::from_std(d) {
