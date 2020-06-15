@@ -9,7 +9,8 @@ pub struct API {
     pub buf: Vec<u8>,
 }
 
-impl API { // TODO make async
+impl API {
+    // TODO make async
     /// Default TCP address of the FAH client.
     pub fn default_addr() -> net::SocketAddr {
         net::SocketAddr::V4(net::SocketAddrV4::new(net::Ipv4Addr::LOCALHOST, 36330))
@@ -183,10 +184,11 @@ impl API { // TODO make async
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
-    /// Requests an ID from the assignment server.
-    pub fn request_id(&mut self) -> Result<(), Error> {
-        exec(&mut self.conn, "request-id", &mut self.buf)
-    }
+    // request_id doesn't work for some reason
+    // Requests an ID from the assignment server.
+    // pub fn request_id(&mut self) -> Result<(), Error> {
+    //     exec(&mut self.conn, "request-id", &mut self.buf)
+    // }
 
     /// Requests work server assignment from the assignment server.
     pub fn request_ws(&mut self) -> Result<(), Error> {
@@ -201,7 +203,11 @@ impl API { // TODO make async
     /// Returns the simulation information for a slot.
     pub fn simulation_info(&mut self, slot: i64) -> Result<SimulationInfo, Error> {
         // "just like the simulations"
-        exec(&mut self.conn, format!("simulation-info {}", slot).as_str(), &mut self.buf)?;
+        exec(
+            &mut self.conn,
+            format!("simulation-info {}", slot).as_str(),
+            &mut self.buf,
+        )?;
         let s = std::str::from_utf8(&mut self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
@@ -220,7 +226,11 @@ impl API { // TODO make async
 
     /// Unpauses a slot.
     pub fn unpause_slot(&mut self, slot: i64) -> Result<(), Error> {
-        exec(&mut self.conn, format!("unpause {}", slot).as_str(), &mut self.buf)
+        exec(
+            &mut self.conn,
+            format!("unpause {}", slot).as_str(),
+            &mut self.buf,
+        )
     }
 
     /// Returns FAH uptime.
@@ -229,9 +239,9 @@ impl API { // TODO make async
         match parse_duration::parse(std::str::from_utf8(&mut self.buf)?) {
             Ok(d) => match chrono::Duration::from_std(d) {
                 Ok(d) => Ok(d.into()),
-                Err(e) => Err(Error::Parse{msg: e.to_string()}),
+                Err(e) => Err(Error::Parse { msg: e.to_string() }),
             },
-            Err(e) => Err(Error::Parse{msg: e.to_string()}),
+            Err(e) => Err(Error::Parse { msg: e.to_string() }),
         }
     }
 
