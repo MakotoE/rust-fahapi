@@ -22,7 +22,9 @@ fn test_help() {
 #[test]
 #[cfg_attr(not(feature = "all-tests"), ignore)]
 fn test_log_updates() {
-    let result = API_INSTANCE.lock().unwrap()
+    let result = API_INSTANCE
+        .lock()
+        .unwrap()
         .log_updates(LogUpdatesArg::Start);
     assert!(result.unwrap().len() > 0);
 }

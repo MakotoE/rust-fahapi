@@ -143,7 +143,10 @@ impl std::fmt::Display for StringBool {
 }
 
 impl<'de> serde::de::Deserialize<'de> for StringBool {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
         match serde_json::from_str(serde::de::Deserialize::deserialize(deserializer)?) {
             Ok(result) => Ok(Self(result)),
             Err(e) => Err(serde::de::Error::custom(e.to_string())),
@@ -167,7 +170,10 @@ impl std::fmt::Display for StringInt {
 }
 
 impl<'de> serde::de::Deserialize<'de> for StringInt {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
         match serde_json::from_str(serde::de::Deserialize::deserialize(deserializer)?) {
             Ok(n) => Ok(Self(n)),
             Err(e) => Err(serde::de::Error::custom(e.to_string())),
@@ -190,7 +196,11 @@ impl Power {
             "LIGHT" => Power::PowerLight,
             "MEDIUM" => Power::PowerMedium,
             "FULL" => Power::PowerFull,
-            _ => return Err(Error::Other{msg: format!("s is invalid: {}", s)})
+            _ => {
+                return Err(Error::Other {
+                    msg: format!("s is invalid: {}", s),
+                })
+            }
         })
     }
 }
@@ -221,7 +231,10 @@ impl std::fmt::Display for Power {
 }
 
 impl<'de> serde::de::Deserialize<'de> for Power {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
         Self::new(serde::de::Deserialize::deserialize(deserializer)?)
             .map_err(|e| serde::de::Error::custom(e.to_string()))
     }
@@ -275,7 +288,10 @@ impl From<chrono::DateTime<chrono::offset::Utc>> for FAHTime {
 }
 
 impl<'de> serde::de::Deserialize<'de> for FAHTime {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
         let s = serde::de::Deserialize::deserialize(deserializer)?;
         if s == "<invalid>" {
             return Ok(None.into());
@@ -304,17 +320,41 @@ impl From<chrono::Duration> for FAHDuration {
 }
 
 impl<'de> serde::de::Deserialize<'de> for FAHDuration {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
         let s = serde::de::Deserialize::deserialize(deserializer)?;
         // TODO don't rely on parse_duration since it has a terrible worst-case performance
         match parse_duration::parse(s) {
-            Ok(d) => {
-                match chrono::Duration::from_std(d) {
-                    Ok(d) => Ok(d.into()),
-                    Err(e) => Err(serde::de::Error::custom(e.to_string()))
-                }
+            Ok(d) => match chrono::Duration::from_std(d) {
+                Ok(d) => Ok(d.into()),
+                Err(e) => Err(serde::de::Error::custom(e.to_string())),
             },
-            Err(e) => Err(serde::de::Error::custom(e.to_string()))
+            Err(e) => Err(serde::de::Error::custom(e.to_string())),
         }
     }
+}
+
+#[derive(Clone, PartialEq, Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "kebab-case", default)]
+pub struct SimulationInfo {
+    pub user: String,
+    pub team: String,
+    pub project: i64,
+    pub run: i64,
+    pub clone: i64,
+    pub gen: i64,
+    pub core_type: i64,
+    pub core: String,
+    pub total_iterations: i64,
+    pub iterations_done: i64,
+    pub energy: i64,
+    pub temperature: i64,
+    pub start_time: FAHTime,
+    pub timeout: i64,
+    pub deadline: i64,
+    pub eta: i64,
+    pub progress: f64,
+    pub slot: i64,
 }

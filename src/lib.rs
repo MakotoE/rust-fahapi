@@ -12,25 +12,22 @@ pub struct API {
 impl API {
     /// Default TCP address of the FAH client.
     pub fn default_addr() -> net::SocketAddr {
-        net::SocketAddr::V4(net::SocketAddrV4::new(
-            net::Ipv4Addr::LOCALHOST,
-            36330,
-        ))
+        net::SocketAddr::V4(net::SocketAddrV4::new(net::Ipv4Addr::LOCALHOST, 36330))
     }
 
     /// Connects to your FAH client with a timeout. Use API::default_addr() to get the default
     /// address.
-    pub fn connect_timeout(addr: &net::SocketAddr, timeout: core::time::Duration) -> std::io::Result<API> {
+    pub fn connect_timeout(
+        addr: &net::SocketAddr,
+        timeout: core::time::Duration,
+    ) -> std::io::Result<API> {
         let mut conn = net::TcpStream::connect_timeout(addr, timeout)?;
         let mut buf: Vec<u8> = Vec::new();
 
         // Discard welcome message
         read_message(&mut conn, &mut buf)?;
 
-        Ok(API{
-            conn,
-            buf,
-        })
+        Ok(API { conn, buf })
     }
 
     /// Returns a listing of the FAH API commands.
@@ -49,11 +46,15 @@ impl API {
             PyON 1 log-update...
         */
 
-        exec(&mut self.conn, format!("log-updates {}", arg).as_str(), &mut self.buf)?;
+        exec(
+            &mut self.conn,
+            format!("log-updates {}", arg).as_str(),
+            &mut self.buf,
+        )?;
         exec_eval(&mut self.conn, "eval", &mut self.buf)?;
 
         // The string contains a bunch of \x00 sequences that are not valid JSON and cannot be
-	    // parsed using parse_pyon().
+        // parsed using parse_pyon().
         parse_log(std::str::from_utf8(&mut self.buf)?)
     }
 
@@ -65,7 +66,11 @@ impl API {
 
     /// Sets a slot to be always on.
     pub fn always_on(&mut self, slot: i64) -> Result<(), Error> {
-        exec(&mut self.conn, format!("always_on {}", slot).as_str(), &mut self.buf)
+        exec(
+            &mut self.conn,
+            format!("always_on {}", slot).as_str(),
+            &mut self.buf,
+        )
     }
 
     /// Returns true if the client has set a user, team or passkey.
@@ -82,7 +87,11 @@ impl API {
 
     /// Pauses a slot when its current work unit is completed.
     pub fn finish_slot(&mut self, slot: i64) -> Result<(), Error> {
-        exec(&mut self.conn, format!("finish {}", slot).as_str(), &mut self.buf)
+        exec(
+            &mut self.conn,
+            format!("finish {}", slot).as_str(),
+            &mut self.buf,
+        )
     }
 
     /// Pauses all slots one-by-one when their current work unit is completed.
@@ -91,7 +100,8 @@ impl API {
     }
 
     /// Returns FAH build and machine info.
-    pub fn info(&mut self) -> Result<serde_json::Value, Error> { // TODO create info_struct() to output structured data
+    pub fn info(&mut self) -> Result<serde_json::Value, Error> {
+        // TODO create info_struct() to output structured data
         exec(&mut self.conn, "info", &mut self.buf)?;
         let s = std::str::from_utf8(&mut self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
@@ -105,8 +115,15 @@ impl API {
     }
 
     /// Sets a slot to run only when idle.
-    pub fn on_idle<N>(&mut self, slot: N) -> Result<(), Error> where N: std::fmt::Display {
-        exec(&mut self.conn, format!("on_idle {}", slot).as_str(), &mut self.buf)
+    pub fn on_idle<N>(&mut self, slot: N) -> Result<(), Error>
+    where
+        N: std::fmt::Display,
+    {
+        exec(
+            &mut self.conn,
+            format!("on_idle {}", slot).as_str(),
+            &mut self.buf,
+        )
     }
 
     /// Sets all slots to run only when idle.
@@ -122,13 +139,16 @@ impl API {
     }
 
     /// Sets an option.
-    pub fn options_set<N>(&mut self, key: &str, value: N) -> Result<(), Error> where N: std::fmt::Display {
+    pub fn options_set<N>(&mut self, key: &str, value: N) -> Result<(), Error>
+    where
+        N: std::fmt::Display,
+    {
         let value_str = format!("{}", value);
 
         if key.contains(&['=', ' ', '!'] as &[char]) || value_str.contains(' ') {
-            return Err(Error::Other{
+            return Err(Error::Other {
                 msg: format!("key or value contains bad character: {}={}", key, value),
-            })
+            });
         }
 
         let command = format!("options {}={}", key, value_str);
@@ -142,7 +162,11 @@ impl API {
 
     /// Pauses a slot.
     pub fn pause_slot(&mut self, slot: i64) -> Result<(), Error> {
-        exec(&mut self.conn, format!("pause {}", slot).as_str(), &mut self.buf)
+        exec(
+            &mut self.conn,
+            format!("pause {}", slot).as_str(),
+            &mut self.buf,
+        )
     }
 
     // Returns the total estimated points per day.
@@ -173,6 +197,14 @@ impl API {
     pub fn shutdown(&mut self) -> Result<(), Error> {
         exec(&mut self.conn, "shutdown", &mut self.buf)
     }
+
+    /// Returns the simulation information for a slot.
+    pub fn simulation_info(&mut self, slot: i64) -> Result<SimulationInfo, Error> {
+        // "just like the simulations"
+        exec(&mut self.conn, format!("simulation-info {}", slot).as_str(), &mut self.buf)?;
+        let s = std::str::from_utf8(&mut self.buf)?;
+        Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
+    }
 }
 
 #[derive(Debug, snafu::Snafu)]
@@ -181,30 +213,24 @@ pub enum Error {
     CommandContainsNewline,
 
     #[snafu(display("IO error: {}", e))]
-    IO{
-        e: std::io::Error,
-    },
+    IO { e: std::io::Error },
 
     #[snafu(display("parse error: {}", msg))]
-    Parse{
-        msg: String,
-    },
+    Parse { msg: String },
 
     #[snafu(display("{}", msg))]
-    Other{
-        msg: String,
-    },
+    Other { msg: String },
 }
 
 impl From<std::str::Utf8Error> for Error {
     fn from(e: std::str::Utf8Error) -> Self {
-        Error::Parse{msg: e.to_string()}
+        Error::Parse { msg: e.to_string() }
     }
 }
 
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Self {
-        Error::Parse{msg: e.to_string()}
+        Error::Parse { msg: e.to_string() }
     }
 }
 
@@ -239,9 +265,10 @@ pub fn exec(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) -> Resu
         return Err(Error::CommandContainsNewline);
     }
 
-    conn.write_all(format!("{}\n", command).as_bytes()).map_err(|e| Error::IO{e})?;
+    conn.write_all(format!("{}\n", command).as_bytes())
+        .map_err(|e| Error::IO { e })?;
 
-    read_message(conn, buf).map_err(|e| Error::IO{e})
+    read_message(conn, buf).map_err(|e| Error::IO { e })
 }
 
 /// Executes commands which do not return a trailing newline. (Some commands don't end their message
@@ -257,10 +284,12 @@ pub fn exec_eval(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) ->
 
     // When using eval with a newline, the response contains an extra trailing backslash.
     match buf.last() {
-        Some(b) => if *b == b'\\' {
-            buf.pop();
-        },
-        None => {},
+        Some(b) => {
+            if *b == b'\\' {
+                buf.pop();
+            }
+        }
+        None => {}
     }
     Ok(())
 }
@@ -270,22 +299,25 @@ pub fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> std::io::R
     loop {
         let mut b: [u8; 1] = [0];
         if r.read(&mut b)? == 0 {
-            return Ok(())
+            return Ok(());
         }
 
         buf.push(b[0]);
 
         const END_OF_MESSAGE: &str = "\n> ";
         if buf.len() >= END_OF_MESSAGE.len()
-            && buf.as_slice()[buf.len()-END_OF_MESSAGE.len()..] == *END_OF_MESSAGE.as_bytes() {
+            && buf.as_slice()[buf.len() - END_OF_MESSAGE.len()..] == *END_OF_MESSAGE.as_bytes()
+        {
             buf.truncate(buf.len() - END_OF_MESSAGE.len());
             match buf.get(0) {
-                Some(b) => if *b == b'\n' {
-                    buf.drain(..1);
-                },
-                None => {},
+                Some(b) => {
+                    if *b == b'\n' {
+                        buf.drain(..1);
+                    }
+                }
+                None => {}
             }
-            return Ok(())
+            return Ok(());
         }
     }
 }
@@ -300,15 +332,17 @@ pub fn parse_log(s: &str) -> Result<String, Error> {
     }
 
     let start = match removed_suffix.find('\n') {
-       Some(i) => i+1,
-       None => 0, 
+        Some(i) => i + 1,
+        None => 0,
     };
     parse_pyon_string(&removed_suffix[start..])
 }
 
 pub fn parse_pyon_string(s: &str) -> Result<String, Error> {
     if s.len() < 2 || s.bytes().nth(0).unwrap() != b'"' || s.bytes().nth_back(0).unwrap() != b'"' {
-        return Err(Error::Parse{msg: "".to_string()})
+        return Err(Error::Parse {
+            msg: "".to_string(),
+        });
     }
 
     lazy_static::lazy_static! {
@@ -334,37 +368,43 @@ pub fn parse_pyon_string(s: &str) -> Result<String, Error> {
                         Some(c) => c.to_string(),
                         None => capture.to_string(),
                     }
-                },
+                }
                 _ => capture.to_string(),
             };
         }
-        
+
         capture.to_string()
     };
-    
-    Ok((*MATCH_ESCAPED.replace_all(&s[1..s.len()-1], replace_fn)).to_string())
+
+    Ok((*MATCH_ESCAPED.replace_all(&s[1..s.len() - 1], replace_fn)).to_string())
 }
 
 pub fn pyon_to_json(s: &str) -> Result<String, Error> {
     // https://pypi.org/project/pon/
     const PREFIX: &str = "PyON";
     const SUFFIX: &str = "\n---";
-    if s.len() < PREFIX.len() || &s[..PREFIX.len()] != PREFIX
-        || s.len() < SUFFIX.len() || &s[s.len()-SUFFIX.len()..] != SUFFIX {
-        return Err(Error::Parse{msg: format!("invalid PyON format: {}", s)})
+    if s.len() < PREFIX.len()
+        || &s[..PREFIX.len()] != PREFIX
+        || s.len() < SUFFIX.len()
+        || &s[s.len() - SUFFIX.len()..] != SUFFIX
+    {
+        return Err(Error::Parse {
+            msg: format!("invalid PyON format: {}", s),
+        });
     }
 
     let mut start = match s.find('\n') {
-        Some(i) => i+1,
-        None => 0, 
+        Some(i) => i + 1,
+        None => 0,
     };
-    
+
     let end = s.len() - SUFFIX.len();
     if start > end {
         start = end;
     }
 
-    Ok(s[start..end].replace("None", "\"\"") // TODO optimize
+    Ok(s[start..end]
+        .replace("None", "\"\"") // TODO optimize
         .replace("False", "false")
         .replace("True", "true"))
 }
@@ -372,7 +412,7 @@ pub fn pyon_to_json(s: &str) -> Result<String, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_read_message() {
         struct Test {
@@ -381,19 +421,19 @@ mod tests {
         }
 
         let tests = vec![
-            Test{
+            Test {
                 s: b"\n> ",
                 expected: b"",
             },
-            Test{
+            Test {
                 s: b"a\n> ",
                 expected: b"a",
             },
-            Test{
+            Test {
                 s: b"a\n> \n> ",
                 expected: b"a",
             },
-            Test{
+            Test {
                 s: b"\na\n> ",
                 expected: b"a",
             },
@@ -416,37 +456,37 @@ mod tests {
         }
 
         let tests = vec![
-            Test{
+            Test {
                 s: "",
                 expected: "",
                 expect_error: true,
             },
-            Test{
+            Test {
                 s: r#"PyON 1 log-update"#,
                 expected: "",
                 expect_error: true,
             },
-            Test{
+            Test {
                 s: r#""""#,
                 expected: "",
                 expect_error: false,
             },
-            Test{
+            Test {
                 s: r#"\n---\n\n"#,
                 expected: "",
                 expect_error: true,
             },
-            Test{
+            Test {
                 s: "\n\"\"\n---\n\n",
                 expected: "",
                 expect_error: false,
             },
-            Test{
+            Test {
                 s: "PyON 1 log-update\n\n---\n\n",
                 expected: "",
                 expect_error: true,
             },
-            Test{
+            Test {
                 s: "PyON 1 log-update\n\"a\"\n---\n\n",
                 expected: "a",
                 expect_error: false,
@@ -470,23 +510,23 @@ mod tests {
             expect_error: bool,
         }
 
-        let tests= vec![
-            Test{
+        let tests = vec![
+            Test {
                 s: "",
                 expected: "",
                 expect_error: true,
             },
-            Test{
+            Test {
                 s: r#""""#,
                 expected: "",
                 expect_error: false,
             },
-            Test{
+            Test {
                 s: r#""\n\"\\\x01""#,
                 expected: "\n\"\\\x01",
                 expect_error: false,
             },
-            Test{
+            Test {
                 s: r#""a\x01a""#,
                 expected: "a\x01a",
                 expect_error: false,
@@ -511,32 +551,32 @@ mod tests {
         }
 
         let tests = vec![
-            Test{
+            Test {
                 s: "",
                 expected: "",
                 expect_error: true,
             },
-            Test{
+            Test {
                 s: "PyON",
                 expected: "",
                 expect_error: true,
             },
-            Test{
+            Test {
                 s: "PyON\n---",
                 expected: "",
                 expect_error: false,
             },
-            Test{
+            Test {
                 s: "PyON\n\n---",
                 expected: "",
                 expect_error: false,
             },
-            Test{
+            Test {
                 s: "PyON\n1\n---",
                 expected: "1",
                 expect_error: false,
             },
-            Test{
+            Test {
                 s: "PyON\nTrue\n---",
                 expected: "true",
                 expect_error: false,
