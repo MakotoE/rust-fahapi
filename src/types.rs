@@ -191,7 +191,7 @@ pub enum Power {
 
 impl Power {
     fn new(s: &str) -> Result<Self, Error> {
-        Ok(match s {
+        Ok(match s.to_uppercase().as_str() {
             "" => Power::PowerNull,
             "LIGHT" => Power::PowerLight,
             "MEDIUM" => Power::PowerMedium,
