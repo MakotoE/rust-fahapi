@@ -358,3 +358,14 @@ pub struct SimulationInfo {
     pub progress: f64,
     pub slot: i64,
 }
+
+#[derive(Clone, PartialEq, Eq, Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "kebab-case", default)]
+pub struct SlotInfo {
+    pub id: String,
+    pub status: String,
+    pub description: String,
+    pub options: serde_json::map::Map<String, serde_json::Value>,
+    pub reason: String,
+    pub idle: bool,
+}

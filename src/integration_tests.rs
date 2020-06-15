@@ -122,13 +122,25 @@ fn test_queue_info() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "all-tests"), ignore)]
 fn test_request_id() {
     API_INSTANCE.lock().unwrap().request_id().unwrap();
 }
 
 #[test]
+#[cfg_attr(not(feature = "all-tests"), ignore)]
 fn test_request_ws() {
     API_INSTANCE.lock().unwrap().request_ws().unwrap();
+}
+
+#[test]
+fn test_simulation_info() {
+    API_INSTANCE.lock().unwrap().simulation_info(0).unwrap();
+}
+
+#[test]
+fn test_slot_info() {
+    API_INSTANCE.lock().unwrap().slot_info().unwrap();
 }
 
 #[test]
