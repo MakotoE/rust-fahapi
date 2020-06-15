@@ -152,10 +152,26 @@ impl API {
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
+    /// Returns info about the current work unit.
     pub fn queue_info(&mut self) -> Result<Vec<SlotQueueInfo>, Error> {
         exec(&mut self.conn, "queue-info", &mut self.buf)?;
         let s = std::str::from_utf8(&mut self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
+    }
+
+    /// Requests an ID from the assignment server.
+    pub fn request_id(&mut self) -> Result<(), Error> {
+        exec(&mut self.conn, "request-id", &mut self.buf)
+    }
+
+    /// Requests work server assignment from the assignment server.
+    pub fn request_ws(&mut self) -> Result<(), Error> {
+        exec(&mut self.conn, "request-ws", &mut self.buf)
+    }
+
+    /// Ends all FAH processes.
+    pub fn shutdown(&mut self) -> Result<(), Error> {
+        exec(&mut self.conn, "shutdown", &mut self.buf)
     }
 }
 

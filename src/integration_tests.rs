@@ -120,6 +120,16 @@ fn test_queue_info() {
 }
 
 #[test]
+fn test_request_id() {
+    API_INSTANCE.lock().unwrap().request_id().unwrap();
+}
+
+#[test]
+fn test_request_ws() {
+    API_INSTANCE.lock().unwrap().request_ws().unwrap();
+}
+
+#[test]
 fn test_exec() {
     let mut api = API_INSTANCE.lock().unwrap();
     let mut buf: Vec<u8> = Vec::new();

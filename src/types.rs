@@ -306,6 +306,7 @@ impl From<chrono::Duration> for FAHDuration {
 impl<'de> serde::de::Deserialize<'de> for FAHDuration {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde::Deserializer<'de> {
         let s = serde::de::Deserialize::deserialize(deserializer)?;
+        // TODO don't rely on parse_duration since it has a terrible worst-case performance
         match parse_duration::parse(s) {
             Ok(d) => {
                 match chrono::Duration::from_std(d) {
