@@ -18,10 +18,7 @@ impl API {
 
     /// Connects to your FAH client with a timeout. Use API::default_addr() to get the default
     /// address.
-    pub fn connect_timeout(
-        addr: &net::SocketAddr,
-        timeout: core::time::Duration,
-    ) -> std::io::Result<API> {
+    pub fn connect_timeout(addr: &net::SocketAddr, timeout: core::time::Duration) -> Result<API> {
         let mut conn = net::TcpStream::connect_timeout(addr, timeout)?;
         let mut buf: Vec<u8> = Vec::new();
 
@@ -32,13 +29,13 @@ impl API {
     }
 
     /// Returns a listing of the FAH API commands.
-    pub fn help(&mut self) -> Result<String, Error> {
+    pub fn help(&mut self) -> Result<String> {
         exec(&mut self.conn, "help", &mut self.buf)?;
         Ok(std::str::from_utf8(self.buf.as_slice())?.to_string())
     }
 
     /// Enables or disables log updates. Returns current log.
-    pub fn log_updates(&mut self, arg: LogUpdatesArg) -> Result<String, Error> {
+    pub fn log_updates(&mut self, arg: LogUpdatesArg) -> Result<String> {
         /*
             This command is weird. It returns the log after the next prompt, like this:
             > log-updates start
@@ -61,12 +58,12 @@ impl API {
 
     /// Unpauses all slots which are paused waiting for a screensaver and pause them again on
     /// disconnect.
-    pub fn screensaver(&mut self) -> Result<(), Error> {
+    pub fn screensaver(&mut self) -> Result<()> {
         exec(&mut self.conn, "screensaver", &mut self.buf)
     }
 
     /// Sets a slot to be always on.
-    pub fn always_on(&mut self, slot: i64) -> Result<(), Error> {
+    pub fn always_on(&mut self, slot: i64) -> Result<()> {
         exec(
             &mut self.conn,
             format!("always_on {}", slot).as_str(),
@@ -75,19 +72,19 @@ impl API {
     }
 
     /// Returns true if the client has set a user, team or passkey.
-    pub fn configured(&mut self) -> Result<bool, Error> {
+    pub fn configured(&mut self) -> Result<bool> {
         exec(&mut self.conn, "configured", &mut self.buf)?;
         let s = std::str::from_utf8(&mut self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
     /// Runs one client cycle.
-    pub fn do_cycle(&mut self) -> Result<(), Error> {
+    pub fn do_cycle(&mut self) -> Result<()> {
         exec(&mut self.conn, "do-cycle", &mut self.buf)
     }
 
     /// Pauses a slot when its current work unit is completed.
-    pub fn finish_slot(&mut self, slot: i64) -> Result<(), Error> {
+    pub fn finish_slot(&mut self, slot: i64) -> Result<()> {
         exec(
             &mut self.conn,
             format!("finish {}", slot).as_str(),
@@ -96,12 +93,12 @@ impl API {
     }
 
     /// Pauses all slots one-by-one when their current work unit is completed.
-    pub fn finish_all(&mut self) -> Result<(), Error> {
+    pub fn finish_all(&mut self) -> Result<()> {
         exec(&mut self.conn, "finish", &mut self.buf)
     }
 
     /// Returns FAH build and machine info.
-    pub fn info(&mut self) -> Result<serde_json::Value, Error> {
+    pub fn info(&mut self) -> Result<serde_json::Value> {
         // TODO create info_struct() to output structured data
         exec(&mut self.conn, "info", &mut self.buf)?;
         let s = std::str::from_utf8(&mut self.buf)?;
@@ -109,14 +106,14 @@ impl API {
     }
 
     /// Returns the number of slots.
-    pub fn num_slots(&mut self) -> Result<i64, Error> {
+    pub fn num_slots(&mut self) -> Result<i64> {
         exec(&mut self.conn, "num-slots", &mut self.buf)?;
         let s = std::str::from_utf8(&mut self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
     /// Sets a slot to run only when idle.
-    pub fn on_idle<N>(&mut self, slot: N) -> Result<(), Error>
+    pub fn on_idle<N>(&mut self, slot: N) -> Result<()>
     where
         N: std::fmt::Display,
     {
@@ -128,28 +125,26 @@ impl API {
     }
 
     /// Sets all slots to run only when idle.
-    pub fn on_idle_all(&mut self) -> Result<(), Error> {
+    pub fn on_idle_all(&mut self) -> Result<()> {
         exec(&mut self.conn, "on_idle", &mut self.buf)
     }
 
     /// Returns the FAH client options.
-    pub fn options_get(&mut self) -> Result<Options, Error> {
+    pub fn options_get(&mut self) -> Result<Options> {
         exec(&mut self.conn, "options -a", &mut self.buf)?;
         let s = std::str::from_utf8(&mut self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
     /// Sets an option.
-    pub fn options_set<N>(&mut self, key: &str, value: N) -> Result<(), Error>
+    pub fn options_set<N>(&mut self, key: &str, value: N) -> Result<()>
     where
         N: std::fmt::Display,
     {
         let value_str = format!("{}", value);
 
         if key.contains(&['=', ' ', '!'] as &[char]) || value_str.contains(' ') {
-            return Err(Error::Other {
-                msg: format!("key or value contains bad character: {}={}", key, value),
-            });
+            return Err(format!("key or value contains bad character: {}={}", key, value).into());
         }
 
         let command = format!("options {}={}", key, value_str);
@@ -157,12 +152,12 @@ impl API {
     }
 
     /// Pauses all slots.
-    pub fn pause_all(&mut self) -> Result<(), Error> {
+    pub fn pause_all(&mut self) -> Result<()> {
         exec(&mut self.conn, "pause", &mut self.buf)
     }
 
     /// Pauses a slot.
-    pub fn pause_slot(&mut self, slot: i64) -> Result<(), Error> {
+    pub fn pause_slot(&mut self, slot: i64) -> Result<()> {
         exec(
             &mut self.conn,
             format!("pause {}", slot).as_str(),
@@ -171,14 +166,14 @@ impl API {
     }
 
     // Returns the total estimated points per day.
-    pub fn ppd(&mut self) -> Result<f64, Error> {
+    pub fn ppd(&mut self) -> Result<f64> {
         exec(&mut self.conn, "ppd", &mut self.buf)?;
         let s = std::str::from_utf8(&mut self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
     /// Returns info about the current work unit.
-    pub fn queue_info(&mut self) -> Result<Vec<SlotQueueInfo>, Error> {
+    pub fn queue_info(&mut self) -> Result<Vec<SlotQueueInfo>> {
         exec(&mut self.conn, "queue-info", &mut self.buf)?;
         let s = std::str::from_utf8(&mut self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
@@ -187,12 +182,12 @@ impl API {
     // request-id and request-ws doesn't work due to "Resource temporarily unavailable"
 
     /// Ends all FAH processes.
-    pub fn shutdown(&mut self) -> Result<(), Error> {
+    pub fn shutdown(&mut self) -> Result<()> {
         exec(&mut self.conn, "shutdown", &mut self.buf)
     }
 
     /// Returns the simulation information for a slot.
-    pub fn simulation_info(&mut self, slot: i64) -> Result<SimulationInfo, Error> {
+    pub fn simulation_info(&mut self, slot: i64) -> Result<SimulationInfo> {
         // "just like the simulations"
         exec(
             &mut self.conn,
@@ -204,19 +199,19 @@ impl API {
     }
 
     /// Returns information about each slot.
-    pub fn slot_info(&mut self) -> Result<Vec<SlotInfo>, Error> {
+    pub fn slot_info(&mut self) -> Result<Vec<SlotInfo>> {
         exec(&mut self.conn, "slot-info", &mut self.buf)?;
         let s = std::str::from_utf8(&mut self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
     /// Unpauses all slots.
-    pub fn unpause_all(&mut self) -> Result<(), Error> {
+    pub fn unpause_all(&mut self) -> Result<()> {
         exec(&mut self.conn, "unpause", &mut self.buf)
     }
 
     /// Unpauses a slot.
-    pub fn unpause_slot(&mut self, slot: i64) -> Result<(), Error> {
+    pub fn unpause_slot(&mut self, slot: i64) -> Result<()> {
         exec(
             &mut self.conn,
             format!("unpause {}", slot).as_str(),
@@ -225,47 +220,36 @@ impl API {
     }
 
     /// Returns FAH uptime.
-    pub fn uptime(&mut self) -> Result<FAHDuration, Error> {
+    pub fn uptime(&mut self) -> Result<FAHDuration> {
         exec_eval(&mut self.conn, "uptime", &mut self.buf)?;
-        match parse_duration::parse(std::str::from_utf8(&mut self.buf)?) {
-            Ok(d) => match chrono::Duration::from_std(d) {
-                Ok(d) => Ok(d.into()),
-                Err(e) => Err(Error::Parse { msg: e.to_string() }),
-            },
-            Err(e) => Err(Error::Parse { msg: e.to_string() }),
+        let duration = parse_duration::parse(std::str::from_utf8(&mut self.buf)?)?;
+        match chrono::Duration::from_std(duration) {
+            Ok(d) => Ok(d.into()),
+            Err(e) => Err(e.to_string().into()),
         }
     }
 
     /// Blocks until all slots are paused.
-    pub fn wait_for_units(&mut self) -> Result<(), Error> {
+    pub fn wait_for_units(&mut self) -> Result<()> {
         exec(&mut self.conn, "wait-for-units", &mut self.buf)
     }
 }
 
-#[derive(Debug, snafu::Snafu)]
-pub enum Error {
-    #[snafu(display("command contains newline"))]
-    CommandContainsNewline,
+error_chain::error_chain! {
+    types {
+        Error, ErrorKind, ResultExt, Result;
+    }
 
-    #[snafu(display("IO error: {}", e))]
-    IO { e: std::io::Error },
-
-    #[snafu(display("parse error: {}", msg))]
-    Parse { msg: String },
-
-    #[snafu(display("{}", msg))]
-    Other { msg: String },
-}
-
-impl From<std::str::Utf8Error> for Error {
-    fn from(e: std::str::Utf8Error) -> Self {
-        Error::Parse { msg: e.to_string() }
+    foreign_links {
+        IO(std::io::Error);
+        UTF8(std::str::Utf8Error);
+        JSON(serde_json::Error);
     }
 }
 
-impl From<serde_json::Error> for Error {
-    fn from(e: serde_json::Error) -> Self {
-        Error::Parse { msg: e.to_string() }
+impl From<parse_duration::parse::Error> for Error {
+    fn from(e: parse_duration::parse::Error) -> Self {
+        Error::from(ErrorKind::Msg(e.to_string()))
     }
 }
 
@@ -276,7 +260,7 @@ pub enum LogUpdatesArg {
 }
 
 impl std::fmt::Display for LogUpdatesArg {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> core::fmt::Result {
         let s = match self {
             LogUpdatesArg::Start => "start",
             LogUpdatesArg::Restart => "restart",
@@ -287,7 +271,7 @@ impl std::fmt::Display for LogUpdatesArg {
 }
 
 /// Executes a command on the FAH client. The response is written to the buffer.
-pub fn exec(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) -> Result<(), Error> {
+pub fn exec(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) -> Result<()> {
     use std::io::Write;
 
     if command == "" {
@@ -297,18 +281,17 @@ pub fn exec(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) -> Resu
     }
 
     if command.contains("\n") {
-        return Err(Error::CommandContainsNewline);
+        return Err("command contains newline".into());
     }
 
-    conn.write_all(format!("{}\n", command).as_bytes())
-        .map_err(|e| Error::IO { e })?;
+    conn.write_all(format!("{}\n", command).as_bytes())?;
 
-    read_message(conn, buf).map_err(|e| Error::IO { e })
+    Ok(read_message(conn, buf)?)
 }
 
 /// Executes commands which do not return a trailing newline. (Some commands don't end their message
 /// and cause infinite blocking.) The response is written to the buffer.
-pub fn exec_eval(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) -> Result<(), Error> {
+pub fn exec_eval(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) -> Result<()> {
     if command == "" {
         // FAH doesn't respond to an empty command
         buf.clear();
@@ -329,7 +312,7 @@ pub fn exec_eval(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) ->
     Ok(())
 }
 
-pub fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> std::io::Result<()> {
+pub fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> Result<()> {
     buf.clear();
     loop {
         let mut b: [u8; 1] = [0];
@@ -357,7 +340,7 @@ pub fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> std::io::R
     }
 }
 
-pub fn parse_log(s: &str) -> Result<String, Error> {
+pub fn parse_log(s: &str) -> Result<String> {
     // The log looks like this: PyON 1 log-update\n"..."\n---\n\n
     const SUFFIX: &str = "\n---\n\n";
 
@@ -373,11 +356,9 @@ pub fn parse_log(s: &str) -> Result<String, Error> {
     parse_pyon_string(&removed_suffix[start..])
 }
 
-pub fn parse_pyon_string(s: &str) -> Result<String, Error> {
+pub fn parse_pyon_string(s: &str) -> Result<String> {
     if s.len() < 2 || s.bytes().nth(0).unwrap() != b'"' || s.bytes().nth_back(0).unwrap() != b'"' {
-        return Err(Error::Parse {
-            msg: "".to_string(),
-        });
+        return Err(format!("cannot parse {}", s).into());
     }
 
     lazy_static::lazy_static! {
@@ -414,7 +395,7 @@ pub fn parse_pyon_string(s: &str) -> Result<String, Error> {
     Ok((*MATCH_ESCAPED.replace_all(&s[1..s.len() - 1], replace_fn)).to_string())
 }
 
-pub fn pyon_to_json(s: &str) -> Result<String, Error> {
+pub fn pyon_to_json(s: &str) -> Result<String> {
     // https://pypi.org/project/pon/
     const PREFIX: &str = "PyON";
     const SUFFIX: &str = "\n---";
@@ -423,9 +404,7 @@ pub fn pyon_to_json(s: &str) -> Result<String, Error> {
         || s.len() < SUFFIX.len()
         || &s[s.len() - SUFFIX.len()..] != SUFFIX
     {
-        return Err(Error::Parse {
-            msg: format!("invalid PyON format: {}", s),
-        });
+        return Err(format!("invalid PyON format: {}", s).into());
     }
 
     let mut start = match s.find('\n') {
