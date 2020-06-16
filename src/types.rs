@@ -143,7 +143,7 @@ impl std::fmt::Display for StringBool {
 }
 
 impl<'de> serde::de::Deserialize<'de> for StringBool {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -170,7 +170,7 @@ impl std::fmt::Display for StringInt {
 }
 
 impl<'de> serde::de::Deserialize<'de> for StringInt {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -190,17 +190,13 @@ pub enum Power {
 }
 
 impl Power {
-    fn new(s: &str) -> Result<Self, Error> {
+    fn new(s: &str) -> Result<Self> {
         Ok(match s.to_uppercase().as_str() {
             "" => Power::PowerNull,
             "LIGHT" => Power::PowerLight,
             "MEDIUM" => Power::PowerMedium,
             "FULL" => Power::PowerFull,
-            _ => {
-                return Err(Error::Other {
-                    msg: format!("s is invalid: {}", s),
-                })
-            }
+            _ => return Err(format!("s is invalid: {}", s).into()),
         })
     }
 }
@@ -231,7 +227,7 @@ impl std::fmt::Display for Power {
 }
 
 impl<'de> serde::de::Deserialize<'de> for Power {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -300,7 +296,7 @@ impl std::fmt::Display for FAHTime {
 }
 
 impl<'de> serde::de::Deserialize<'de> for FAHTime {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -344,7 +340,7 @@ impl std::fmt::Display for FAHDuration {
 }
 
 impl<'de> serde::de::Deserialize<'de> for FAHDuration {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
