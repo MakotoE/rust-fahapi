@@ -10,9 +10,11 @@ on:
 jobs:
   test:
     runs-on: 	ubuntu-20.04
+    container:
+        image: emurasoft/rust-fahapi-ci:0
     steps:
-      - run: wget https://download.foldingathome.org/releases/public/release/fahclient/debian-stable-64bit/v7.6/fahclient_7.6.13_amd64.deb
-      - run: sudo dpkg -i fahclient_7.6.13_amd64.deb
+      - run: /etc/init.d/FAHClient start > /dev/null || true
+      - run: sleep 0.5
       - run: FAHClient --send-command pause
       - uses: actions/checkout@v2
       - run: cargo test --all-features
