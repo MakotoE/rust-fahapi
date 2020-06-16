@@ -17,5 +17,5 @@ jobs:
       - run: sleep 0.5
       - run: FAHClient --send-command pause
       - uses: actions/checkout@v2
-      - run: cargo test --all-features
+      - run: RUST_BACKTRACE=1 cargo test --all-features -- --nocapture
       - run: cargo fmt -- --check
