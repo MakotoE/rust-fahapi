@@ -16,7 +16,7 @@ lazy_static::lazy_static! {
 #[test]
 fn test_help() {
     let result = API_INSTANCE.lock().unwrap().help();
-    assert!(result.unwrap().len() > 0);
+    assert!(!result.unwrap().is_empty());
 }
 
 #[test]
@@ -26,7 +26,7 @@ fn test_log_updates() {
         .lock()
         .unwrap()
         .log_updates(LogUpdatesArg::Start);
-    assert!(result.unwrap().len() > 0);
+    assert!(!result.unwrap().is_empty());
 }
 
 #[test]
@@ -67,7 +67,7 @@ fn test_finish_all() {
 #[test]
 fn test_info() {
     let result = API_INSTANCE.lock().unwrap().info().unwrap();
-    assert!(result.as_array().unwrap().len() > 0)
+    assert!(!result.as_array().unwrap().is_empty())
 }
 
 #[test]
@@ -94,7 +94,7 @@ fn test_options_set_get() {
     assert!(api.options_set("power=", Power::PowerNull).is_err());
 
     let old_options = api.options_get().unwrap();
-    assert!(old_options.log.len() > 0);
+    assert!(!old_options.log.is_empty());
 
     api.options_set("power", Power::PowerLight).unwrap();
 

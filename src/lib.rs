@@ -53,7 +53,7 @@ impl API {
 
         // The string contains a bunch of \x00 sequences that are not valid JSON and cannot be
         // parsed using parse_pyon().
-        parse_log(std::str::from_utf8(&mut self.buf)?)
+        parse_log(std::str::from_utf8(&self.buf)?)
     }
 
     /// Unpauses all slots which are paused waiting for a screensaver and pause them again on
@@ -74,7 +74,7 @@ impl API {
     /// Returns true if the client has set a user, team or passkey.
     pub fn configured(&mut self) -> Result<bool> {
         exec(&mut self.conn, "configured", &mut self.buf)?;
-        let s = std::str::from_utf8(&mut self.buf)?;
+        let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
@@ -101,14 +101,14 @@ impl API {
     pub fn info(&mut self) -> Result<serde_json::Value> {
         // TODO create info_struct() to output structured data
         exec(&mut self.conn, "info", &mut self.buf)?;
-        let s = std::str::from_utf8(&mut self.buf)?;
+        let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
     /// Returns the number of slots.
     pub fn num_slots(&mut self) -> Result<i64> {
         exec(&mut self.conn, "num-slots", &mut self.buf)?;
-        let s = std::str::from_utf8(&mut self.buf)?;
+        let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
@@ -132,7 +132,7 @@ impl API {
     /// Returns the FAH client options.
     pub fn options_get(&mut self) -> Result<Options> {
         exec(&mut self.conn, "options -a", &mut self.buf)?;
-        let s = std::str::from_utf8(&mut self.buf)?;
+        let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
@@ -168,14 +168,14 @@ impl API {
     // Returns the total estimated points per day.
     pub fn ppd(&mut self) -> Result<f64> {
         exec(&mut self.conn, "ppd", &mut self.buf)?;
-        let s = std::str::from_utf8(&mut self.buf)?;
+        let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
     /// Returns info about the current work unit.
     pub fn queue_info(&mut self) -> Result<Vec<SlotQueueInfo>> {
         exec(&mut self.conn, "queue-info", &mut self.buf)?;
-        let s = std::str::from_utf8(&mut self.buf)?;
+        let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
@@ -194,14 +194,14 @@ impl API {
             format!("simulation-info {}", slot).as_str(),
             &mut self.buf,
         )?;
-        let s = std::str::from_utf8(&mut self.buf)?;
+        let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
     /// Returns information about each slot.
     pub fn slot_info(&mut self) -> Result<Vec<SlotInfo>> {
         exec(&mut self.conn, "slot-info", &mut self.buf)?;
-        let s = std::str::from_utf8(&mut self.buf)?;
+        let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
@@ -222,7 +222,7 @@ impl API {
     /// Returns FAH uptime.
     pub fn uptime(&mut self) -> Result<FAHDuration> {
         exec_eval(&mut self.conn, "uptime", &mut self.buf)?;
-        let duration = parse_duration::parse(std::str::from_utf8(&mut self.buf)?)?;
+        let duration = parse_duration::parse(std::str::from_utf8(&self.buf)?)?;
         match chrono::Duration::from_std(duration) {
             Ok(d) => Ok(d.into()),
             Err(e) => Err(e.to_string().into()),
@@ -280,7 +280,7 @@ pub fn exec(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) -> Resu
         return Ok(());
     }
 
-    if command.contains("\n") {
+    if command.contains('\n') {
         return Err("command contains newline".into());
     }
 
@@ -301,13 +301,10 @@ pub fn exec_eval(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) ->
     exec(conn, format!(r#"eval "$({})\n""#, command).as_str(), buf)?;
 
     // When using eval with a newline, the response contains an extra trailing backslash.
-    match buf.last() {
-        Some(b) => {
-            if *b == b'\\' {
-                buf.pop();
-            }
+    if let Some(b) = buf.last() {
+        if *b == b'\\' {
+            buf.pop();
         }
-        None => {}
     }
     Ok(())
 }
@@ -327,13 +324,10 @@ pub fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> Result<()>
             && buf.as_slice()[buf.len() - END_OF_MESSAGE.len()..] == *END_OF_MESSAGE.as_bytes()
         {
             buf.truncate(buf.len() - END_OF_MESSAGE.len());
-            match buf.get(0) {
-                Some(b) => {
-                    if *b == b'\n' {
-                        buf.drain(..1);
-                    }
+            if let Some(b) = buf.get(0) {
+                if *b == b'\n' {
+                    buf.drain(..1);
                 }
-                None => {}
             }
             return Ok(());
         }
@@ -356,6 +350,7 @@ pub fn parse_log(s: &str) -> Result<String> {
     parse_pyon_string(&removed_suffix[start..])
 }
 
+#[allow(clippy::iter_nth_zero)]
 pub fn parse_pyon_string(s: &str) -> Result<String> {
     if s.len() < 2 || s.bytes().nth(0).unwrap() != b'"' || s.bytes().nth_back(0).unwrap() != b'"' {
         return Err(format!("cannot parse {}", s).into());
