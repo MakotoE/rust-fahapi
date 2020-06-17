@@ -124,6 +124,8 @@ fn test_queue_info() {
     API_INSTANCE.lock().unwrap().queue_info().unwrap();
 }
 
+// request_id() and request_ws() causes tests to break
+
 #[test]
 fn test_simulation_info() {
     API_INSTANCE.lock().unwrap().simulation_info(0).unwrap();

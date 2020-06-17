@@ -179,7 +179,15 @@ impl API {
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
-    // request-id and request-ws doesn't work due to "Resource temporarily unavailable"
+    /// Requests an ID from the assignment server.
+    pub fn request_id(&mut self) -> Result<()> {
+        exec(&mut self.conn, "request-id", &mut self.buf)
+    }
+
+    /// Requests work server assignment from the assignment server.
+    pub fn request_ws(&mut self) -> Result<()> {
+        exec(&mut self.conn, "request-ws", &mut self.buf)
+    }
 
     /// Ends all FAH processes.
     pub fn shutdown(&mut self) -> Result<()> {
