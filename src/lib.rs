@@ -253,6 +253,12 @@ error_chain::error_chain! {
         UTF8(std::str::Utf8Error);
         JSON(serde_json::Error);
     }
+
+    errors {
+        EOF {
+            description("EOF; the command might have been invalid")
+        }
+    }
 }
 
 impl From<parse_duration::parse::Error> for Error {
@@ -322,7 +328,8 @@ pub fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> Result<()>
     loop {
         let mut b: [u8; 1] = [0];
         if r.read(&mut b)? == 0 {
-            return Ok(());
+            // If we haven't reached END_OF_MESSAGE and 0 bytes was read, then EOF was returned
+            return Err(ErrorKind::EOF.into());
         }
 
         buf.push(b[0]);
