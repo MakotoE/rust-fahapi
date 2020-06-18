@@ -6,8 +6,8 @@ lazy_static::lazy_static! {
             &API::default_addr(),
             core::time::Duration::from_secs(1),
         ).unwrap();
-        api.conn.set_read_timeout(Some(core::time::Duration::from_secs(10))).unwrap();
-        api.conn.set_write_timeout(Some(core::time::Duration::from_secs(10))).unwrap();
+        api.conn.conn.set_read_timeout(Some(core::time::Duration::from_secs(10))).unwrap();
+        api.conn.conn.set_write_timeout(Some(core::time::Duration::from_secs(10))).unwrap();
 
         std::sync::Mutex::new(api)
     };
@@ -147,10 +147,10 @@ fn test_uptime() {
 fn test_exec() {
     let mut api = API_INSTANCE.lock().unwrap();
     let mut buf: Vec<u8> = Vec::new();
-    exec(&mut api.conn, "", &mut buf).unwrap();
+    api.conn.exec("", &mut buf).unwrap();
     assert!(buf.is_empty());
 
-    exec(&mut api.conn, "\n", &mut buf).expect_err("");
+    api.conn.exec("\n", &mut buf).expect_err("");
     assert!(buf.is_empty());
 }
 
@@ -158,9 +158,9 @@ fn test_exec() {
 fn test_exec_eval() {
     let mut api = API_INSTANCE.lock().unwrap();
     let mut buf: Vec<u8> = Vec::new();
-    exec_eval(&mut api.conn, "", &mut buf).unwrap();
+    api.conn.exec_eval("", &mut buf).unwrap();
     assert!(buf.is_empty());
 
-    exec_eval(&mut api.conn, "date", &mut buf).unwrap();
+    api.conn.exec_eval("date", &mut buf).unwrap();
     assert!(!buf.is_empty());
 }
