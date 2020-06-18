@@ -3,14 +3,16 @@ use std::net;
 mod types;
 pub use types::*;
 
+mod connection;
+pub use connection::*;
+
 #[derive(Debug)]
 pub struct API {
-    pub conn: net::TcpStream,
+    pub conn: Connection,
     pub buf: Vec<u8>,
 }
 
 impl API {
-    // TODO make async
     /// Default TCP address of the FAH client.
     pub fn default_addr() -> net::SocketAddr {
         net::SocketAddr::V4(net::SocketAddrV4::new(net::Ipv4Addr::LOCALHOST, 36330))
@@ -19,18 +21,15 @@ impl API {
     /// Connects to your FAH client with a timeout. Use API::default_addr() to get the default
     /// address.
     pub fn connect_timeout(addr: &net::SocketAddr, timeout: core::time::Duration) -> Result<API> {
-        let mut conn = net::TcpStream::connect_timeout(addr, timeout)?;
-        let mut buf: Vec<u8> = Vec::new();
-
-        // Discard welcome message
-        read_message(&mut conn, &mut buf)?;
-
-        Ok(API { conn, buf })
+        Ok(API {
+            conn: Connection::connect_timeout(addr, timeout)?,
+            buf: Vec::new(),
+        })
     }
 
     /// Returns a listing of the FAH API commands.
     pub fn help(&mut self) -> Result<String> {
-        exec(&mut self.conn, "help", &mut self.buf)?;
+        self.conn.exec("help", &mut self.buf)?;
         Ok(std::str::from_utf8(self.buf.as_slice())?.to_string())
     }
 
@@ -44,12 +43,9 @@ impl API {
             PyON 1 log-update...
         */
 
-        exec(
-            &mut self.conn,
-            format!("log-updates {}", arg).as_str(),
-            &mut self.buf,
-        )?;
-        exec_eval(&mut self.conn, "eval", &mut self.buf)?;
+        self.conn
+            .exec(format!("log-updates {}", arg).as_str(), &mut self.buf)?;
+        self.conn.exec_eval("eval", &mut self.buf)?;
 
         // The string contains a bunch of \x00 sequences that are not valid JSON and cannot be
         // parsed using parse_pyon().
@@ -59,55 +55,49 @@ impl API {
     /// Unpauses all slots which are paused waiting for a screensaver and pause them again on
     /// disconnect.
     pub fn screensaver(&mut self) -> Result<()> {
-        exec(&mut self.conn, "screensaver", &mut self.buf)
+        self.conn.exec("screensaver", &mut self.buf)
     }
 
     /// Sets a slot to be always on.
     pub fn always_on(&mut self, slot: i64) -> Result<()> {
-        exec(
-            &mut self.conn,
-            format!("always_on {}", slot).as_str(),
-            &mut self.buf,
-        )
+        self.conn
+            .exec(format!("always_on {}", slot).as_str(), &mut self.buf)
     }
 
     /// Returns true if the client has set a user, team or passkey.
     pub fn configured(&mut self) -> Result<bool> {
-        exec(&mut self.conn, "configured", &mut self.buf)?;
+        self.conn.exec("configured", &mut self.buf)?;
         let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
     /// Runs one client cycle.
     pub fn do_cycle(&mut self) -> Result<()> {
-        exec(&mut self.conn, "do-cycle", &mut self.buf)
+        self.conn.exec("do-cycle", &mut self.buf)
     }
 
     /// Pauses a slot when its current work unit is completed.
     pub fn finish_slot(&mut self, slot: i64) -> Result<()> {
-        exec(
-            &mut self.conn,
-            format!("finish {}", slot).as_str(),
-            &mut self.buf,
-        )
+        self.conn
+            .exec(format!("finish {}", slot).as_str(), &mut self.buf)
     }
 
     /// Pauses all slots one-by-one when their current work unit is completed.
     pub fn finish_all(&mut self) -> Result<()> {
-        exec(&mut self.conn, "finish", &mut self.buf)
+        self.conn.exec("finish", &mut self.buf)
     }
 
     /// Returns FAH build and machine info.
     pub fn info(&mut self) -> Result<serde_json::Value> {
         // TODO create info_struct() to output structured data
-        exec(&mut self.conn, "info", &mut self.buf)?;
+        self.conn.exec("info", &mut self.buf)?;
         let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
     /// Returns the number of slots.
     pub fn num_slots(&mut self) -> Result<i64> {
-        exec(&mut self.conn, "num-slots", &mut self.buf)?;
+        self.conn.exec("num-slots", &mut self.buf)?;
         let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
@@ -117,21 +107,18 @@ impl API {
     where
         N: std::fmt::Display,
     {
-        exec(
-            &mut self.conn,
-            format!("on_idle {}", slot).as_str(),
-            &mut self.buf,
-        )
+        self.conn
+            .exec(format!("on_idle {}", slot).as_str(), &mut self.buf)
     }
 
     /// Sets all slots to run only when idle.
     pub fn on_idle_all(&mut self) -> Result<()> {
-        exec(&mut self.conn, "on_idle", &mut self.buf)
+        self.conn.exec("on_idle", &mut self.buf)
     }
 
     /// Returns the FAH client options.
     pub fn options_get(&mut self) -> Result<Options> {
-        exec(&mut self.conn, "options -a", &mut self.buf)?;
+        self.conn.exec("options -a", &mut self.buf)?;
         let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
@@ -148,88 +135,79 @@ impl API {
         }
 
         let command = format!("options {}={}", key, value_str);
-        exec(&mut self.conn, command.as_str(), &mut self.buf)
+        self.conn.exec(command.as_str(), &mut self.buf)
     }
 
     /// Pauses all slots.
     pub fn pause_all(&mut self) -> Result<()> {
-        exec(&mut self.conn, "pause", &mut self.buf)
+        self.conn.exec("pause", &mut self.buf)
     }
 
     /// Pauses a slot.
     pub fn pause_slot(&mut self, slot: i64) -> Result<()> {
-        exec(
-            &mut self.conn,
-            format!("pause {}", slot).as_str(),
-            &mut self.buf,
-        )
+        self.conn
+            .exec(format!("pause {}", slot).as_str(), &mut self.buf)
     }
 
     // Returns the total estimated points per day.
     pub fn ppd(&mut self) -> Result<f64> {
-        exec(&mut self.conn, "ppd", &mut self.buf)?;
+        self.conn.exec("ppd", &mut self.buf)?;
         let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
     /// Returns info about the current work unit.
     pub fn queue_info(&mut self) -> Result<Vec<SlotQueueInfo>> {
-        exec(&mut self.conn, "queue-info", &mut self.buf)?;
+        self.conn.exec("queue-info", &mut self.buf)?;
         let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
     /// Requests an ID from the assignment server.
     pub fn request_id(&mut self) -> Result<()> {
-        exec(&mut self.conn, "request-id", &mut self.buf)
+        self.conn.exec("request-id", &mut self.buf)
     }
 
     /// Requests work server assignment from the assignment server.
     pub fn request_ws(&mut self) -> Result<()> {
-        exec(&mut self.conn, "request-ws", &mut self.buf)
+        self.conn.exec("request-ws", &mut self.buf)
     }
 
     /// Ends all FAH processes.
     pub fn shutdown(&mut self) -> Result<()> {
-        exec(&mut self.conn, "shutdown", &mut self.buf)
+        self.conn.exec("shutdown", &mut self.buf)
     }
 
     /// Returns the simulation information for a slot.
     pub fn simulation_info(&mut self, slot: i64) -> Result<SimulationInfo> {
         // "just like the simulations"
-        exec(
-            &mut self.conn,
-            format!("simulation-info {}", slot).as_str(),
-            &mut self.buf,
-        )?;
+        self.conn
+            .exec(format!("simulation-info {}", slot).as_str(), &mut self.buf)?;
         let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
     /// Returns information about each slot.
     pub fn slot_info(&mut self) -> Result<Vec<SlotInfo>> {
-        exec(&mut self.conn, "slot-info", &mut self.buf)?;
+        self.conn.exec("slot-info", &mut self.buf)?;
         let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
     /// Unpauses all slots.
     pub fn unpause_all(&mut self) -> Result<()> {
-        exec(&mut self.conn, "unpause", &mut self.buf)
+        self.conn.exec("unpause", &mut self.buf)
     }
 
     /// Unpauses a slot.
     pub fn unpause_slot(&mut self, slot: i64) -> Result<()> {
-        exec(
-            &mut self.conn,
-            format!("unpause {}", slot).as_str(),
-            &mut self.buf,
-        )
+        self.conn
+            .exec(format!("unpause {}", slot).as_str(), &mut self.buf)
     }
 
     /// Returns FAH uptime.
     pub fn uptime(&mut self) -> Result<FAHDuration> {
-        exec_eval(&mut self.conn, "uptime", &mut self.buf)?;
+        self.conn.exec_eval("uptime", &mut self.buf)?;
         let duration = parse_duration::parse(std::str::from_utf8(&self.buf)?)?;
         match chrono::Duration::from_std(duration) {
             Ok(d) => Ok(d.into()),
@@ -239,7 +217,7 @@ impl API {
 
     /// Blocks until all slots are paused.
     pub fn wait_for_units(&mut self) -> Result<()> {
-        exec(&mut self.conn, "wait-for-units", &mut self.buf)
+        self.conn.exec("wait-for-units", &mut self.buf)
     }
 }
 
@@ -281,71 +259,6 @@ impl std::fmt::Display for LogUpdatesArg {
             LogUpdatesArg::Stop => "stop",
         };
         write!(f, "{}", s)
-    }
-}
-
-/// Executes a command on the FAH client. The response is written to the buffer.
-pub fn exec(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) -> Result<()> {
-    use std::io::Write;
-
-    if command == "" {
-        // FAH doesn't respond to an empty command
-        buf.clear();
-        return Ok(());
-    }
-
-    if command.contains('\n') {
-        return Err("command contains newline".into());
-    }
-
-    conn.write_all(format!("{}\n", command).as_bytes())?;
-
-    Ok(read_message(conn, buf)?)
-}
-
-/// Executes commands which do not return a trailing newline. (Some commands don't end their message
-/// and cause infinite blocking.) The response is written to the buffer.
-pub fn exec_eval(conn: &mut net::TcpStream, command: &str, buf: &mut Vec<u8>) -> Result<()> {
-    if command == "" {
-        // FAH doesn't respond to an empty command
-        buf.clear();
-        return Ok(());
-    }
-
-    exec(conn, format!(r#"eval "$({})\n""#, command).as_str(), buf)?;
-
-    // When using eval with a newline, the response contains an extra trailing backslash.
-    if let Some(b) = buf.last() {
-        if *b == b'\\' {
-            buf.pop();
-        }
-    }
-    Ok(())
-}
-
-pub fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> Result<()> {
-    buf.clear();
-    loop {
-        let mut b: [u8; 1] = [0];
-        if r.read(&mut b)? == 0 {
-            // If we haven't reached END_OF_MESSAGE and 0 bytes was read, then EOF was returned
-            return Err(ErrorKind::EOF.into());
-        }
-
-        buf.push(b[0]);
-
-        const END_OF_MESSAGE: &str = "\n> ";
-        if buf.len() >= END_OF_MESSAGE.len()
-            && buf.as_slice()[buf.len() - END_OF_MESSAGE.len()..] == *END_OF_MESSAGE.as_bytes()
-        {
-            buf.truncate(buf.len() - END_OF_MESSAGE.len());
-            if let Some(b) = buf.get(0) {
-                if *b == b'\n' {
-                    buf.drain(..1);
-                }
-            }
-            return Ok(());
-        }
     }
 }
 
@@ -436,40 +349,6 @@ pub fn pyon_to_json(s: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_read_message() {
-        struct Test {
-            s: &'static [u8],
-            expected: &'static [u8],
-        }
-
-        let tests = vec![
-            Test {
-                s: b"\n> ",
-                expected: b"",
-            },
-            Test {
-                s: b"a\n> ",
-                expected: b"a",
-            },
-            Test {
-                s: b"a\n> \n> ",
-                expected: b"a",
-            },
-            Test {
-                s: b"\na\n> ",
-                expected: b"a",
-            },
-        ];
-
-        let mut buf: Vec<u8> = Vec::new();
-        for (i, test) in tests.iter().enumerate() {
-            use bytes::buf::ext::BufExt;
-            read_message(&mut bytes::Bytes::from_static(test.s).reader(), &mut buf).unwrap();
-            assert_eq!(buf.as_slice(), test.expected, "{}", i);
-        }
-    }
 
     #[test]
     fn test_parse_log() {
