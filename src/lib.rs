@@ -189,7 +189,8 @@ impl API {
 
     /// Deletes a slot.
     pub fn slot_delete(&mut self, slot: i64) -> Result<()> {
-        self.conn.exec(format!("slot-delete {}", slot).as_str(), &mut self.buf)
+        let command = format!("slot-delete {}", slot);
+        self.conn.exec(command.as_str(), &mut self.buf)
     }
 
     /// Returns information about each slot.
@@ -201,7 +202,8 @@ impl API {
 
     /// Returns slot options.
     pub fn slot_options_get(&mut self, slot: i64) -> Result<SlotOptions> {
-        self.conn.exec(format!("slot-options {} -a", slot).as_str(), &mut self.buf)?;
+        let command = format!("slot-options {} -a", slot);
+        self.conn.exec(command.as_str(), &mut self.buf)?;
         let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
