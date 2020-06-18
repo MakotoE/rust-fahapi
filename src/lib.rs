@@ -187,11 +187,34 @@ impl API {
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
+    /// Deletes a slot.
+    pub fn slot_delete(&mut self, slot: i64) -> Result<()> {
+        let command = format!("slot-delete {}", slot);
+        self.conn.exec(command.as_str(), &mut self.buf)
+    }
+
     /// Returns information about each slot.
     pub fn slot_info(&mut self) -> Result<Vec<SlotInfo>> {
         self.conn.exec("slot-info", &mut self.buf)?;
         let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
+    }
+
+    /// Returns slot options.
+    pub fn slot_options_get(&mut self, slot: i64) -> Result<SlotOptions> {
+        let command = format!("slot-options {} -a", slot);
+        self.conn.exec(command.as_str(), &mut self.buf)?;
+        let s = std::str::from_utf8(&self.buf)?;
+        Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
+    }
+
+    /// Sets slot option.
+    pub fn slot_options_set<N>(&mut self, slot: i64, key: &str, value: N) -> Result<()>
+    where
+        N: std::fmt::Display,
+    {
+        let command = format!("slot-options {} {} {}", slot, key, value);
+        self.conn.exec(command.as_str(), &mut self.buf)
     }
 
     /// Unpauses all slots.
