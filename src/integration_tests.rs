@@ -139,6 +139,23 @@ fn test_slot_info() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "all-tests"), ignore)]
+fn test_slot_options_get_set() {
+    assert!(API_INSTANCE.lock().unwrap().slot_options_get(-1).is_err());
+
+    let old_options = API_INSTANCE.lock().unwrap().slot_options_get(0).unwrap();
+    assert!(!old_options.machine_id.is_empty());
+
+    API_INSTANCE.lock().unwrap().slot_options_set(0, "paused", false).unwrap();
+
+    let new_options = API_INSTANCE.lock().unwrap().slot_options_get(0).unwrap();
+    assert!(!new_options.paused.0);
+
+    API_INSTANCE.lock().unwrap().slot_options_set(0, "paused", old_options.paused)
+        .unwrap();
+}
+
+#[test]
 fn test_uptime() {
     API_INSTANCE.lock().unwrap().uptime().unwrap();
 }

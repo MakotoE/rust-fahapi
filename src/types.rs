@@ -393,3 +393,10 @@ pub struct SlotInfo {
     pub reason: String,
     pub idle: bool,
 }
+
+#[derive(Clone, PartialEq, Eq, Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "kebab-case", default)]
+pub struct SlotOptions {
+    pub machine_id: String,
+    pub paused: StringBool,
+}
