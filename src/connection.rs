@@ -5,6 +5,7 @@ use std::net;
 pub struct Connection {
     pub conn: net::TcpStream,
     pub addr: net::SocketAddr,
+    pub connect_timeout: core::time::Duration,
 }
 
 impl Connection {
@@ -12,6 +13,7 @@ impl Connection {
         Ok(Self {
             conn: connect_timeout(addr, timeout)?,
             addr: *addr,
+            connect_timeout: timeout,
         })
     }
 
@@ -31,7 +33,15 @@ impl Connection {
 
         self.conn.write_all(format!("{}\n", command).as_bytes())?;
 
-        Ok(read_message(&mut self.conn, buf)?)
+        if let Err(e) = read_message(&mut self.conn, buf) {
+            // Try to reconnect on disconnection
+            if *e.kind().to_string() == ErrorKind::EOF.to_string() {
+                self.conn = connect_timeout(&self.addr, self.connect_timeout)?;
+            }
+            return Err(e);
+        }
+
+        Ok(())
     }
 
     /// Executes commands which do not return a trailing newline. (Some commands don't end their message

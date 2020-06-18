@@ -91,7 +91,7 @@ fn test_on_idle_all() {
 #[cfg_attr(not(feature = "all-tests"), ignore)]
 fn test_options_set_get() {
     let mut api = API_INSTANCE.lock().unwrap();
-    // assert!(api.options_set("a", "").is_err());
+    assert!(api.options_set("a", "").is_err());
 
     assert!(api.options_set("power=", Power::PowerNull).is_err());
 
