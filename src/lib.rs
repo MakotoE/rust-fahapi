@@ -363,14 +363,19 @@ pub fn pyon_to_json(s: &str) -> Result<String> {
         start = end;
     }
 
-    Ok(s[start..end]
-        .replace("None", "\"\"") // TODO optimize
-        .replace("False", "false")
-        .replace("True", "true"))
+    Ok(match &s[start..end] {
+    "True" => "true".to_string(),
+    "False" => "false".to_string(),
+    _ => s[start..end]
+        .replace(": None", r#": """#) 
+        .replace(": False", ": false")
+        .replace(": True", ": true")
+    })
 }
 
 #[cfg(test)]
 mod tests {
+    #[allow(unused_imports)]
     use super::*;
 
     #[test]
@@ -507,6 +512,11 @@ mod tests {
                 expected: "true",
                 expect_error: false,
             },
+            Test {
+                s: "PyON\n{\"\": None}\n---",
+                expected: "{\"\": \"\"}",
+                expect_error: false,
+            },
         ];
 
         for (i, test) in tests.iter().enumerate() {
@@ -517,6 +527,16 @@ mod tests {
             }
         }
     }
+}
+
+bencher::benchmark_group!(benches, bench_pyon_to_json);
+bencher::benchmark_main!(benches);
+
+fn bench_pyon_to_json(b: &mut bencher::Bencher) {
+    // test bench_pyon_to_json ... bench:          29 ns/iter (+/- 6)
+    b.iter(|| {
+        pyon_to_json("PyON\nFalse\n---")
+    })
 }
 
 #[cfg(test)]
