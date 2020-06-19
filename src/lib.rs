@@ -43,8 +43,8 @@ impl API {
             PyON 1 log-update...
         */
 
-        self.conn
-            .exec(format!("log-updates {}", arg).as_str(), &mut self.buf)?;
+        let command = format!("log-updates {}", arg);
+        self.conn.exec(command.as_str(), &mut self.buf)?;
         self.conn.exec_eval("eval", &mut self.buf)?;
 
         // The string contains a bunch of \x00 sequences that are not valid JSON and cannot be
@@ -60,8 +60,8 @@ impl API {
 
     /// Sets a slot to be always on.
     pub fn always_on(&mut self, slot: i64) -> Result<()> {
-        self.conn
-            .exec(format!("always_on {}", slot).as_str(), &mut self.buf)
+        let command = format!("always_on {}", slot);
+        self.conn.exec(command.as_str(), &mut self.buf)
     }
 
     /// Returns true if the client has set a user, team or passkey.
@@ -78,8 +78,8 @@ impl API {
 
     /// Pauses a slot when its current work unit is completed.
     pub fn finish_slot(&mut self, slot: i64) -> Result<()> {
-        self.conn
-            .exec(format!("finish {}", slot).as_str(), &mut self.buf)
+        let command = format!("finish {}", slot);
+        self.conn.exec(command.as_str(), &mut self.buf)
     }
 
     /// Pauses all slots one-by-one when their current work unit is completed.
@@ -107,8 +107,8 @@ impl API {
     where
         N: std::fmt::Display,
     {
-        self.conn
-            .exec(format!("on_idle {}", slot).as_str(), &mut self.buf)
+        let command = format!("on_idle {}", slot);
+        self.conn.exec(command.as_str(), &mut self.buf)
     }
 
     /// Sets all slots to run only when idle.
@@ -145,8 +145,8 @@ impl API {
 
     /// Pauses a slot.
     pub fn pause_slot(&mut self, slot: i64) -> Result<()> {
-        self.conn
-            .exec(format!("pause {}", slot).as_str(), &mut self.buf)
+        let command =  format!("pause {}", slot);
+        self.conn.exec(command.as_str(), &mut self.buf)
     }
 
     // Returns the total estimated points per day.
@@ -181,8 +181,8 @@ impl API {
     /// Returns the simulation information for a slot.
     pub fn simulation_info(&mut self, slot: i64) -> Result<SimulationInfo> {
         // "just like the simulations"
-        self.conn
-            .exec(format!("simulation-info {}", slot).as_str(), &mut self.buf)?;
+        let command = format!("simulation-info {}", slot);
+        self.conn.exec(command.as_str(), &mut self.buf)?;
         let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
@@ -224,8 +224,8 @@ impl API {
 
     /// Unpauses a slot.
     pub fn unpause_slot(&mut self, slot: i64) -> Result<()> {
-        self.conn
-            .exec(format!("unpause {}", slot).as_str(), &mut self.buf)
+        let command = format!("unpause {}", slot);
+        self.conn.exec(command.as_str(), &mut self.buf)
     }
 
     /// Returns FAH uptime.
