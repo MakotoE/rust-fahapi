@@ -31,3 +31,9 @@ name = "parse_log"
 path = "fuzz_targets/parse_log.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "pyon_to_json"
+path = "fuzz_targets/pyon_to_json.rs"
+test = false
+doc = false
