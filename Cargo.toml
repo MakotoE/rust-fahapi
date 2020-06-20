@@ -7,6 +7,11 @@ edition = "2018"
 [features]
 all-tests = [] # Run tests that will modify your FAH settings
 
+[[bench]]
+name = "benchmark"
+path = "src/lib.rs"
+harness = false
+
 [dependencies]
 bytes = "0.5"
 lazy_static = "1.4"
@@ -16,3 +21,4 @@ serde = {version = "1.0", features = ["derive"]}
 chrono = "0.4"
 parse_duration = "2.1"
 error-chain = "0.12.2"
+bencher = "0.1"

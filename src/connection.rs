@@ -104,6 +104,7 @@ pub fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> Result<()>
 
 #[cfg(test)]
 mod tests {
+    #[allow(unused_imports)]
     use super::*;
 
     #[test]
