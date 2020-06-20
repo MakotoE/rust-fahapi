@@ -346,9 +346,9 @@ pub fn pyon_to_json(s: &str) -> Result<String> {
     const PREFIX: &str = "PyON";
     const SUFFIX: &str = "\n---";
     if s.len() < PREFIX.len()
-        || &s[..PREFIX.len()] != PREFIX
+        || s.bytes().take(PREFIX.len()).partial_cmp(PREFIX.bytes()) != Some(core::cmp::Ordering::Equal)
         || s.len() < SUFFIX.len()
-        || &s[s.len() - SUFFIX.len()..] != SUFFIX
+        || s.bytes().skip(s.len() - SUFFIX.len()).partial_cmp(SUFFIX.bytes()) != Some(core::cmp::Ordering::Equal)
     {
         return Err(format!("invalid PyON format: {}", s).into());
     }
@@ -517,6 +517,11 @@ mod tests {
                 expected: "{\"\": \"\"}",
                 expect_error: false,
             },
+            Test {
+                s: "\n}÷ ",
+                expected: "",
+                expect_error: true,
+            },
         ];
 
         for (i, test) in tests.iter().enumerate() {
@@ -533,7 +538,7 @@ bencher::benchmark_group!(benches, bench_pyon_to_json);
 bencher::benchmark_main!(benches);
 
 fn bench_pyon_to_json(b: &mut bencher::Bencher) {
-    // test bench_pyon_to_json ... bench:          29 ns/iter (+/- 6)
+    // test bench_pyon_to_json ... bench:          33 ns/iter (+/- 1)
     b.iter(|| pyon_to_json("PyON\nFalse\n---"))
 }
 
