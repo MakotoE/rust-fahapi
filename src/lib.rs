@@ -145,7 +145,7 @@ impl API {
 
     /// Pauses a slot.
     pub fn pause_slot(&mut self, slot: i64) -> Result<()> {
-        let command =  format!("pause {}", slot);
+        let command = format!("pause {}", slot);
         self.conn.exec(command.as_str(), &mut self.buf)
     }
 
@@ -364,12 +364,12 @@ pub fn pyon_to_json(s: &str) -> Result<String> {
     }
 
     Ok(match &s[start..end] {
-    "True" => "true".to_string(),
-    "False" => "false".to_string(),
-    _ => s[start..end]
-        .replace(": None", r#": """#) 
-        .replace(": False", ": false")
-        .replace(": True", ": true")
+        "True" => "true".to_string(),
+        "False" => "false".to_string(),
+        _ => s[start..end]
+            .replace(": None", r#": """#)
+            .replace(": False", ": false")
+            .replace(": True", ": true"),
     })
 }
 
@@ -534,9 +534,7 @@ bencher::benchmark_main!(benches);
 
 fn bench_pyon_to_json(b: &mut bencher::Bencher) {
     // test bench_pyon_to_json ... bench:          29 ns/iter (+/- 6)
-    b.iter(|| {
-        pyon_to_json("PyON\nFalse\n---")
-    })
+    b.iter(|| pyon_to_json("PyON\nFalse\n---"))
 }
 
 #[cfg(test)]
