@@ -3,6 +3,11 @@ name = "fahapi"
 version = "0.1.0"
 authors = ["Makoto <makoto@emurasoft.com>"]
 edition = "2018"
+description = "Folding@home client API wrapper for Rust"
+license = "MIT"
+repository = "https://github.com/MakotoE/rust-fahapi"
+keywords = ["Folding@home"]
+readme = "README.md"
 
 [features]
 all-tests = [] # Run tests that will modify your FAH settings

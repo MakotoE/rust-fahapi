@@ -1,3 +1,9 @@
+//! Folding@home client API wrapper for Rust. Use
+//! [`API::connect_timeout()`](./struct.API.html#method.connect_timeout) to connect to your FAH
+//! client.
+//!
+//! [rust-fahapi on Github](https://github.com/MakotoE/rust-fahapi)
+
 use std::net;
 
 mod types;
@@ -13,6 +19,16 @@ lazy_static::lazy_static! {
     };
 }
 
+/// Wrapper for the FAH API. Use API::connect_timeout() to initialize.
+///
+/// Example
+/// ```no_run
+/// fn example() -> fahapi::Result<()> {
+///     let mut api = fahapi::API::connect_timeout(&fahapi::DEFAULT_ADDR, std::time::Duration::from_secs(1))?;
+///     api.pause_all()?;
+///     api.unpause_all()
+/// }
+/// ```
 #[derive(Debug)]
 pub struct API {
     pub conn: Connection,
@@ -104,10 +120,7 @@ impl API {
     }
 
     /// Sets a slot to run only when idle.
-    pub fn on_idle<N>(&mut self, slot: N) -> Result<()>
-    where
-        N: std::fmt::Display,
-    {
+    pub fn on_idle(&mut self, slot: i64) -> Result<()> {
         let command = format!("on_idle {}", slot);
         self.conn.exec(command.as_str(), &mut self.buf)
     }

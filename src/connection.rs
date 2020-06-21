@@ -1,6 +1,7 @@
 use super::*;
 use std::net;
 
+/// Contains the TCP connection to the FAH client, as well as its address for reconnecting.
 #[derive(Debug)]
 pub struct Connection {
     pub conn: net::TcpStream,
