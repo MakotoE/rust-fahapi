@@ -1,3 +1,9 @@
+//! Folding@home client API wrapper for Rust. Use
+//! [`API::connect_timeout()`](./struct.API.html#method.connect_timeout) to connect to your FAH
+//! client.
+//!
+//! [rust-fahapi on Github](https://github.com/MakotoE/rust-fahapi)
+
 use std::net;
 
 mod types;
@@ -6,10 +12,24 @@ pub use types::*;
 mod connection;
 pub use connection::*;
 
+/// Wrapper for the FAH API. Use API::connect_timeout() to initialize.
+///
+/// Example
+/// ```no_run
+/// let api = API::connect_timeout(&DEFAULT_ADDR, std::time::Duration::from_secs(1))?;
+/// api.pause_all()?;
+/// api.unpause_all()?;
+/// ```
 #[derive(Debug)]
 pub struct API {
     pub conn: Connection,
     pub buf: Vec<u8>,
+}
+
+lazy_static::lazy_static!{
+    static ref DEFAULT_ADDR: net::SocketAddr = {
+        net::SocketAddr::V4(net::SocketAddrV4::new(net::Ipv4Addr::LOCALHOST, 36330))
+    };
 }
 
 impl API {
@@ -18,7 +38,7 @@ impl API {
         net::SocketAddr::V4(net::SocketAddrV4::new(net::Ipv4Addr::LOCALHOST, 36330))
     }
 
-    /// Connects to your FAH client with a timeout. Use API::default_addr() to get the default
+    /// Connects to your FAH client with a timeout. Use `API::default_addr()` to get the default
     /// address.
     pub fn connect_timeout(addr: &net::SocketAddr, timeout: core::time::Duration) -> Result<API> {
         Ok(API {
@@ -103,10 +123,7 @@ impl API {
     }
 
     /// Sets a slot to run only when idle.
-    pub fn on_idle<N>(&mut self, slot: N) -> Result<()>
-    where
-        N: std::fmt::Display,
-    {
+    pub fn on_idle(&mut self, slot: i64) -> Result<()> {
         let command = format!("on_idle {}", slot);
         self.conn.exec(command.as_str(), &mut self.buf)
     }
