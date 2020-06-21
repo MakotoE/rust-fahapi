@@ -251,14 +251,29 @@ error_chain::error_chain! {
 
     foreign_links {
         IO(std::io::Error);
-        UTF8(std::str::Utf8Error);
-        JSON(serde_json::Error);
     }
 
     errors {
         EOF {
             description("EOF; the command might have been invalid")
         }
+
+        Parse (msg: String) {
+            description("parse error")
+            display("parse error: {}", msg)
+        }
+    }
+}
+
+impl From<std::str::Utf8Error> for Error {
+    fn from(e: std::str::Utf8Error) -> Self {
+        Error::from(ErrorKind::Parse(e.to_string()))
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(e: serde_json::Error) -> Self {
+        Error::from(ErrorKind::Parse(e.to_string()))
     }
 }
 
