@@ -12,6 +12,13 @@ pub use types::*;
 mod connection;
 pub use connection::*;
 
+lazy_static::lazy_static! {
+    /// Default TCP address of the FAH client.
+    pub static ref DEFAULT_ADDR: net::SocketAddr = {
+        net::SocketAddr::V4(net::SocketAddrV4::new(net::Ipv4Addr::LOCALHOST, 36330))
+    };
+}
+
 /// Wrapper for the FAH API. Use API::connect_timeout() to initialize.
 ///
 /// Example
@@ -26,20 +33,8 @@ pub struct API {
     pub buf: Vec<u8>,
 }
 
-lazy_static::lazy_static!{
-    static ref DEFAULT_ADDR: net::SocketAddr = {
-        net::SocketAddr::V4(net::SocketAddrV4::new(net::Ipv4Addr::LOCALHOST, 36330))
-    };
-}
-
 impl API {
-    /// Default TCP address of the FAH client.
-    pub fn default_addr() -> net::SocketAddr {
-        net::SocketAddr::V4(net::SocketAddrV4::new(net::Ipv4Addr::LOCALHOST, 36330))
-    }
-
-    /// Connects to your FAH client with a timeout. Use `API::default_addr()` to get the default
-    /// address.
+    /// Connects to your FAH client with a timeout. `DEFAULT_ADDR` is the default address.
     pub fn connect_timeout(addr: &net::SocketAddr, timeout: core::time::Duration) -> Result<API> {
         Ok(API {
             conn: Connection::connect_timeout(addr, timeout)?,
