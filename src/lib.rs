@@ -23,9 +23,11 @@ lazy_static::lazy_static! {
 ///
 /// Example
 /// ```no_run
-/// let api = API::connect_timeout(&DEFAULT_ADDR, std::time::Duration::from_secs(1))?;
-/// api.pause_all()?;
-/// api.unpause_all()?;
+/// fn example() -> fahapi::Result<()> {
+///     let mut api = fahapi::API::connect_timeout(&fahapi::DEFAULT_ADDR, std::time::Duration::from_secs(1))?;
+///     api.pause_all()?;
+///     api.unpause_all()
+/// }
 /// ```
 #[derive(Debug)]
 pub struct API {
