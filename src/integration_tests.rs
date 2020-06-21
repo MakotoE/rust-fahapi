@@ -2,10 +2,7 @@ use super::*;
 
 lazy_static::lazy_static! {
     static ref API_INSTANCE: std::sync::Mutex<API> = {
-        let api = API::connect_timeout(
-            &API::default_addr(),
-            core::time::Duration::from_secs(1),
-        ).unwrap();
+        let api = API::connect_timeout(&DEFAULT_ADDR, core::time::Duration::from_secs(1)).unwrap();
         api.conn.conn.set_read_timeout(Some(core::time::Duration::from_secs(10))).unwrap();
         api.conn.conn.set_write_timeout(Some(core::time::Duration::from_secs(10))).unwrap();
 
