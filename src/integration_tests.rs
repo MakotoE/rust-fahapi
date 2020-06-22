@@ -68,6 +68,12 @@ fn test_info() {
 }
 
 #[test]
+fn test_info_struct() {
+    let result = API_INSTANCE.lock().unwrap().info_struct().unwrap();
+    assert!(!result.fah_client.version.is_empty());
+}
+
+#[test]
 fn test_num_slots() {
     API_INSTANCE.lock().unwrap().num_slots().unwrap();
 }

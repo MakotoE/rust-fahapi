@@ -428,7 +428,7 @@ pub struct Info {
 }
 
 impl Info {
-    fn from(src: Vec<Vec<serde_json::Value>>) -> Result<Self> {
+    pub fn new(src: Vec<Vec<serde_json::Value>>) -> Result<Self> {
         if src.len() < 4
             || src[0][0] != "FAHClient"
             || src[1][0] != "CBang"
@@ -475,21 +475,21 @@ trait FieldSetter {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Default, serde::Deserialize)]
 pub struct FAHClient {
-    version: String,
-    author: String,
-    copyright: String,
-    homepage: String,
-    date: String,
-    time: String,
-    revision: String,
-    branch: String,
-    compiler: String,
-    options: String,
-    platform: String,
-    bits: String,
-    mode: String,
-    args: String,
-    config: String,
+    pub version: String,
+    pub author: String,
+    pub copyright: String,
+    pub homepage: String,
+    pub date: String,
+    pub time: String,
+    pub revision: String,
+    pub branch: String,
+    pub compiler: String,
+    pub options: String,
+    pub platform: String,
+    pub bits: String,
+    pub mode: String,
+    pub args: String,
+    pub config: String,
 }
 
 impl FieldSetter for FAHClient {
@@ -519,15 +519,15 @@ impl FieldSetter for FAHClient {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Default, serde::Deserialize)]
 pub struct CBang {
-    date: String,
-    time: String,
-    revision: String,
-    branch: String,
-    compiler: String,
-    options: String,
-    platform: String,
-    bits: String,
-    mode: String,
+    pub date: String,
+    pub time: String,
+    pub revision: String,
+    pub branch: String,
+    pub compiler: String,
+    pub options: String,
+    pub platform: String,
+    pub bits: String,
+    pub mode: String,
 }
 
 impl FieldSetter for CBang {
@@ -551,22 +551,22 @@ impl FieldSetter for CBang {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Default, serde::Deserialize)]
 pub struct System {
-    cpu: String,
-    cpu_id: String,
-    cpus: StringInt,
-    memory: String,
-    free_memory: String,
-    threads: String,
-    os_version: String,
-    has_battery: String,
-    on_battery: String,
-    utc_offset: String,
-    pid: String,
-    cwd: String,
-    os: String,
-    os_arch: String,
-    gpus: StringInt,
-    // I don't have multiple GPUs so I can't test the "GPU 0" part
+    pub cpu: String,
+    pub cpu_id: String,
+    pub cpus: StringInt,
+    pub memory: String,
+    pub free_memory: String,
+    pub threads: String,
+    pub os_version: String,
+    pub has_battery: String,
+    pub on_battery: String,
+    pub utc_offset: String,
+    pub pid: String,
+    pub cwd: String,
+    pub os: String,
+    pub os_arch: String,
+    pub gpus: StringInt,
+    // I don't have multiple GPUs so I can't test the "GPU 0" field
 }
 
 impl FieldSetter for System {
@@ -574,21 +574,25 @@ impl FieldSetter for System {
         let v = value.to_string();
         match k {
             "CPU" => self.cpu = v,
-            "CPU_id" => self.cpu_id = v,
+            "CPU ID" => self.cpu_id = v,
             "CPUs" => self.cpus = str::parse(value)?,
             "Memory" => self.memory = v,
             "Free Memory" => self.free_memory = v,
             "Threads" => self.threads = v,
             "OS Version" => self.os_version = v,
             "Has Battery" => self.has_battery = v,
-            "On_battery" => self.on_battery = v,
-            "UTC_Offset" => self.utc_offset = v,
+            "On Battery" => self.on_battery = v,
+            "UTC Offset" => self.utc_offset = v,
             "PID" => self.pid = v,
             "CWD" => self.cwd = v,
             "OS" => self.os = v,
-            "OS_Arch" => self.os_arch = v,
+            "OS Arch" => self.os_arch = v,
             "GPUs" => self.gpus = str::parse(value)?,
-            _ => eprintln!("discarded unknown field: {}", k),
+            _ => {
+                if !k.starts_with("GPU") && !k.starts_with("CUDA") && !k.starts_with("OpenCL") {
+                    eprintln!("discarded unknown field: {}", k);
+                }
+            }
         };
         Ok(())
     }
@@ -596,15 +600,15 @@ impl FieldSetter for System {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Default, serde::Deserialize)]
 pub struct LibFAH {
-    date: String,
-    time: String,
-    revision: String,
-    branch: String,
-    compiler: String,
-    options: String,
-    platform: String,
-    bits: String,
-    mode: String,
+    pub date: String,
+    pub time: String,
+    pub revision: String,
+    pub branch: String,
+    pub compiler: String,
+    pub options: String,
+    pub platform: String,
+    pub bits: String,
+    pub mode: String,
 }
 
 impl FieldSetter for LibFAH {
@@ -632,7 +636,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_info_from() {
+    fn test_info_new() {
         let src = vec![
             vec![
                 serde_json::Value::String("FAHClient".into()),
@@ -656,8 +660,8 @@ mod tests {
             ],
         ];
 
-        assert!(Info::from(Vec::new()).is_err());
-        let result = Info::from(src).unwrap();
+        assert!(Info::new(Vec::new()).is_err());
+        let result = Info::new(src).unwrap();
         assert!(!result.fah_client.version.is_empty());
         assert!(!result.system.cpu_id.is_empty());
         assert_eq!(result.system.cpus, StringInt(1));
