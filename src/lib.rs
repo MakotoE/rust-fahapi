@@ -104,12 +104,16 @@ impl API {
         self.conn.exec("finish", &mut self.buf)
     }
 
-    /// Returns FAH build and machine info.
-    pub fn info(&mut self) -> Result<serde_json::Value> {
-        // TODO create info_struct() to output structured data
+    /// Returns FAH build and machine info. See `info_struct()`.
+    pub fn info(&mut self) -> Result<Vec<Vec<serde_json::Value>>> {
         self.conn.exec("info", &mut self.buf)?;
         let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
+    }
+
+    // Converts Info() data into a structure. Consider this interface to be very unstable.
+    pub fn info_struct(&mut self) -> Result<Info> {
+        Info::new(self.info()?)
     }
 
     /// Returns the number of slots.

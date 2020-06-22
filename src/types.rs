@@ -154,6 +154,17 @@ impl<'de> serde::de::Deserialize<'de> for StringBool {
     }
 }
 
+impl core::str::FromStr for StringBool {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self> {
+        let n: bool = match str::parse(s) {
+            Ok(n) => n,
+            Err(e) => return Err(ErrorKind::Parse(e.to_string()).into()),
+        };
+        Ok(Self(n))
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
 pub struct StringInt(pub i64);
 
@@ -181,6 +192,17 @@ impl<'de> serde::de::Deserialize<'de> for StringInt {
     }
 }
 
+impl core::str::FromStr for StringInt {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self> {
+        let n: i64 = match str::parse(s) {
+            Ok(n) => n,
+            Err(e) => return Err(ErrorKind::Parse(e.to_string()).into()),
+        };
+        Ok(Self(n))
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Power {
     PowerNull,
@@ -189,8 +211,15 @@ pub enum Power {
     PowerFull,
 }
 
-impl Power {
-    fn new(s: &str) -> Result<Self> {
+impl std::default::Default for Power {
+    fn default() -> Self {
+        Power::PowerNull
+    }
+}
+
+impl core::str::FromStr for Power {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self> {
         Ok(match s.to_uppercase().as_str() {
             "" => Power::PowerNull,
             "LIGHT" => Power::PowerLight,
@@ -198,19 +227,6 @@ impl Power {
             "FULL" => Power::PowerFull,
             _ => return Err(format!("s is invalid: {}", s).into()),
         })
-    }
-}
-
-impl std::default::Default for Power {
-    fn default() -> Self {
-        Power::PowerNull
-    }
-}
-
-impl From<&str> for Power {
-    /// Panics if s is invalid.
-    fn from(s: &str) -> Self {
-        Self::new(s).unwrap()
     }
 }
 
@@ -231,8 +247,10 @@ impl<'de> serde::de::Deserialize<'de> for Power {
     where
         D: serde::Deserializer<'de>,
     {
-        Self::new(serde::de::Deserialize::deserialize(deserializer)?)
-            .map_err(|e| serde::de::Error::custom(e.to_string()))
+        match str::parse(serde::de::Deserialize::deserialize(deserializer)?) {
+            Ok(p) => Ok(p),
+            Err(e) => Err(serde::de::Error::custom(e.to_string())),
+        }
     }
 }
 
@@ -399,4 +417,253 @@ pub struct SlotInfo {
 pub struct SlotOptions {
     pub machine_id: String,
     pub paused: StringBool,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default, serde::Deserialize)]
+pub struct Info {
+    pub fah_client: FAHClient,
+    pub cbang: CBang,
+    pub system: System,
+    pub libfah: LibFAH,
+}
+
+impl Info {
+    pub fn new(src: Vec<Vec<serde_json::Value>>) -> Result<Self> {
+        if src.len() < 4
+            || src[0][0] != "FAHClient"
+            || src[1][0] != "CBang"
+            || src[2][0] != "System"
+            || src[3][0] != "libFAH"
+        {
+            return Err(ErrorKind::Parse("src is invalid".into()).into());
+        }
+
+        let mut result = Info::default();
+
+        let mut primary_fields: Vec<&mut dyn FieldSetter> = vec![
+            &mut result.fah_client,
+            &mut result.cbang,
+            &mut result.system,
+            &mut result.libfah,
+        ];
+
+        for (field_index, field) in primary_fields.iter_mut().enumerate() {
+            for item in src[field_index][1..].iter() {
+                if let serde_json::Value::Array(a) = item {
+                    if let serde_json::Value::String(k) = &a[0] {
+                        if let serde_json::Value::String(v) = &a[1] {
+                            field.set(&k, v)?;
+                        } else {
+                            return Err(ErrorKind::Parse("unexpected type".into()).into());
+                        }
+                    } else {
+                        return Err(ErrorKind::Parse("unexpected type".into()).into());
+                    }
+                } else {
+                    return Err(ErrorKind::Parse("unexpected type".into()).into());
+                }
+            }
+        }
+
+        Ok(result)
+    }
+}
+
+trait FieldSetter {
+    fn set(&mut self, k: &str, value: &str) -> Result<()>;
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default, serde::Deserialize)]
+pub struct FAHClient {
+    pub version: String,
+    pub author: String,
+    pub copyright: String,
+    pub homepage: String,
+    pub date: String,
+    pub time: String,
+    pub revision: String,
+    pub branch: String,
+    pub compiler: String,
+    pub options: String,
+    pub platform: String,
+    pub bits: String,
+    pub mode: String,
+    pub args: String,
+    pub config: String,
+}
+
+impl FieldSetter for FAHClient {
+    fn set(&mut self, k: &str, value: &str) -> Result<()> {
+        let v = value.to_string();
+        match k {
+            "Version" => self.version = v,
+            "Author" => self.author = v,
+            "Copyright" => self.copyright = v,
+            "Homepage" => self.homepage = v,
+            "Date" => self.date = v,
+            "Time" => self.time = v,
+            "Revision" => self.revision = v,
+            "Branch" => self.branch = v,
+            "Compiler" => self.compiler = v,
+            "Options" => self.options = v,
+            "Platform" => self.platform = v,
+            "Bits" => self.bits = v,
+            "Mode" => self.mode = v,
+            "Args" => self.args = v,
+            "Config" => self.config = v,
+            _ => eprintln!("discarded unknown field: {}", k),
+        };
+        Ok(())
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default, serde::Deserialize)]
+pub struct CBang {
+    pub date: String,
+    pub time: String,
+    pub revision: String,
+    pub branch: String,
+    pub compiler: String,
+    pub options: String,
+    pub platform: String,
+    pub bits: String,
+    pub mode: String,
+}
+
+impl FieldSetter for CBang {
+    fn set(&mut self, k: &str, value: &str) -> Result<()> {
+        let v = value.to_string();
+        match k {
+            "Date" => self.date = v,
+            "Time" => self.time = v,
+            "Revision" => self.revision = v,
+            "Branch" => self.branch = v,
+            "Compiler" => self.compiler = v,
+            "Options" => self.options = v,
+            "Platform" => self.platform = v,
+            "Bits" => self.bits = v,
+            "Mode" => self.mode = v,
+            _ => eprintln!("discarded unknown field: {}", k),
+        };
+        Ok(())
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default, serde::Deserialize)]
+pub struct System {
+    pub cpu: String,
+    pub cpu_id: String,
+    pub cpus: StringInt,
+    pub memory: String,
+    pub free_memory: String,
+    pub threads: String,
+    pub os_version: String,
+    pub has_battery: String,
+    pub on_battery: String,
+    pub utc_offset: String,
+    pub pid: String,
+    pub cwd: String,
+    pub os: String,
+    pub os_arch: String,
+    pub gpus: StringInt,
+    // I don't have multiple GPUs so I can't test the "GPU 0" field
+}
+
+impl FieldSetter for System {
+    fn set(&mut self, k: &str, value: &str) -> Result<()> {
+        let v = value.to_string();
+        match k {
+            "CPU" => self.cpu = v,
+            "CPU ID" => self.cpu_id = v,
+            "CPUs" => self.cpus = str::parse(value)?,
+            "Memory" => self.memory = v,
+            "Free Memory" => self.free_memory = v,
+            "Threads" => self.threads = v,
+            "OS Version" => self.os_version = v,
+            "Has Battery" => self.has_battery = v,
+            "On Battery" => self.on_battery = v,
+            "UTC Offset" => self.utc_offset = v,
+            "PID" => self.pid = v,
+            "CWD" => self.cwd = v,
+            "OS" => self.os = v,
+            "OS Arch" => self.os_arch = v,
+            "GPUs" => self.gpus = str::parse(value)?,
+            _ => {
+                if !k.starts_with("GPU") && !k.starts_with("CUDA") && !k.starts_with("OpenCL") {
+                    eprintln!("discarded unknown field: {}", k);
+                }
+            }
+        };
+        Ok(())
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default, serde::Deserialize)]
+pub struct LibFAH {
+    pub date: String,
+    pub time: String,
+    pub revision: String,
+    pub branch: String,
+    pub compiler: String,
+    pub options: String,
+    pub platform: String,
+    pub bits: String,
+    pub mode: String,
+}
+
+impl FieldSetter for LibFAH {
+    fn set(&mut self, k: &str, value: &str) -> Result<()> {
+        let v = value.to_string();
+        match k {
+            "Date" => self.date = v,
+            "Time" => self.time = v,
+            "Revision" => self.revision = v,
+            "Branch" => self.branch = v,
+            "Compiler" => self.compiler = v,
+            "Options" => self.options = v,
+            "Platform" => self.platform = v,
+            "Bits" => self.bits = v,
+            "Mode" => self.mode = v,
+            _ => eprintln!("discarded unknown field: {}", k),
+        };
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[allow(unused_imports)]
+    use super::*;
+
+    #[test]
+    fn test_info_new() {
+        let src = vec![
+            vec![
+                serde_json::Value::String("FAHClient".into()),
+                serde_json::Value::Array(vec!["Version".into(), "7.6.13".into()]),
+            ],
+            vec![
+                serde_json::Value::String("CBang".into()),
+                serde_json::Value::Array(vec!["Date".into(), "Apr 20 2020".into()]),
+            ],
+            vec![
+                serde_json::Value::String("System".into()),
+                serde_json::Value::Array(vec![
+                    "CPU ID".into(),
+                    "Intel Management Engine is a backdoor".into(),
+                ]),
+                serde_json::Value::Array(vec!["CPUs".into(), "1".into()]),
+            ],
+            vec![
+                serde_json::Value::String("libFAH".into()),
+                serde_json::Value::Array(vec!["Date".into(), "Apr 20 2020".into()]),
+            ],
+        ];
+
+        assert!(Info::new(Vec::new()).is_err());
+        let result = Info::new(src).unwrap();
+        assert!(!result.fah_client.version.is_empty());
+        assert!(!result.system.cpu_id.is_empty());
+        assert_eq!(result.system.cpus, StringInt(1));
+    }
 }
