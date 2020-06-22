@@ -105,8 +105,7 @@ impl API {
     }
 
     /// Returns FAH build and machine info.
-    pub fn info(&mut self) -> Result<serde_json::Value> {
-        // TODO create info_struct() to output structured data
+    pub fn info(&mut self) -> Result<Vec<Vec<serde_json::Value>>> {
         self.conn.exec("info", &mut self.buf)?;
         let s = std::str::from_utf8(&self.buf)?;
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)

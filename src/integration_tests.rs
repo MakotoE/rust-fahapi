@@ -64,7 +64,7 @@ fn test_finish_all() {
 #[test]
 fn test_info() {
     let result = API_INSTANCE.lock().unwrap().info().unwrap();
-    assert!(!result.as_array().unwrap().is_empty())
+    assert!(!result.is_empty())
 }
 
 #[test]
