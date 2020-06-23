@@ -367,8 +367,7 @@ impl<'de> serde::de::Deserialize<'de> for FAHDuration {
             return Ok(None.into());
         }
 
-        // TODO don't rely on parse_duration since it has a terrible worst-case performance
-        match parse_duration::parse(s) {
+        match humantime::parse_duration(s) {
             Ok(d) => match chrono::Duration::from_std(d) {
                 Ok(d) => Ok(d.into()),
                 Err(e) => Err(serde::de::Error::custom(e.to_string())),
