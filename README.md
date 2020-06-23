@@ -10,4 +10,6 @@ fn example() -> fahapi::Result<()> {
 }
 ```
 
+This is a Rust port of [go-fahapi](https://github.com/MakotoE/go-fahapi).
+
 This library is unstable as FAH presents itself with more surprises every now and then.
