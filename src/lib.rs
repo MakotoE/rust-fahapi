@@ -249,7 +249,7 @@ impl API {
     /// Returns FAH uptime.
     pub fn uptime(&mut self) -> Result<FAHDuration> {
         self.conn.exec_eval("uptime", &mut self.buf)?;
-        let duration = parse_duration::parse(std::str::from_utf8(&self.buf)?)?;
+        let duration = humantime::parse_duration(std::str::from_utf8(&self.buf)?)?;
         match chrono::Duration::from_std(duration) {
             Ok(d) => Ok(d.into()),
             Err(e) => Err(e.to_string().into()),
@@ -295,8 +295,8 @@ impl From<serde_json::Error> for Error {
     }
 }
 
-impl From<parse_duration::parse::Error> for Error {
-    fn from(e: parse_duration::parse::Error) -> Self {
+impl From<humantime::DurationError> for Error {
+    fn from(e: humantime::DurationError) -> Self {
         Error::from(ErrorKind::Msg(e.to_string()))
     }
 }
