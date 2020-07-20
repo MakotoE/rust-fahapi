@@ -1,6 +1,6 @@
 # Folding@home client API wrapper for Rust
 
-[![Latest version](https://img.shields.io/crates/v/fahapi.svg)](https://crates.io/crates/fahapi) [![Documentation](https://docs.rs/fahapi/badge.svg)](https://docs.rs/fahapi/0.1.0/fahapi/)
+[![Latest version](https://img.shields.io/crates/v/fahapi.svg)](https://crates.io/crates/fahapi) [![Documentation](https://docs.rs/fahapi/badge.svg)](https://docs.rs/fahapi/)
 
 ```rust
 fn example() -> fahapi::Result<()> {

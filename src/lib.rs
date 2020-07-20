@@ -111,7 +111,7 @@ impl API {
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
-    // Converts Info() data into a structure. Consider this interface to be very unstable.
+    /// Converts Info() data into a structure. Consider this interface to be very unstable.
     pub fn info_struct(&mut self) -> Result<Info> {
         Info::new(self.info()?)
     }
@@ -334,9 +334,8 @@ pub fn parse_log(s: &str) -> Result<String> {
     parse_pyon_string(&removed_suffix[start..])
 }
 
-#[allow(clippy::iter_nth_zero)]
 pub fn parse_pyon_string(s: &str) -> Result<String> {
-    if s.len() < 2 || s.bytes().nth(0).unwrap() != b'"' || s.bytes().nth_back(0).unwrap() != b'"' {
+    if s.len() < 2 || s.bytes().next().unwrap() != b'"' || s.bytes().nth_back(0).unwrap() != b'"' {
         return Err(format!("cannot parse {}", s).into());
     }
 
