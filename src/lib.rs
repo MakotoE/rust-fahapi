@@ -345,7 +345,7 @@ pub fn parse_pyon_string(s: &str) -> Result<String> {
 
     let replace_fn: fn(&regex::Captures) -> String = |caps: &regex::Captures| {
         let capture = &caps[0];
-        if capture.bytes().nth(0).unwrap() == b'\\' {
+        if capture.bytes().next().unwrap() == b'\\' {
             return match capture.bytes().nth(1).unwrap() {
                 b'n' => "\n".to_string(),
                 b'r' => "\r".to_string(),
