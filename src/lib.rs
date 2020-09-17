@@ -273,7 +273,7 @@ error_chain::error_chain! {
 
     errors {
         EOF {
-            description("EOF; the command might have been invalid")
+            description("EOF")
         }
 
         Parse (msg: String) {
