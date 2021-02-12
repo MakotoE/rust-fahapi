@@ -157,11 +157,7 @@ impl<'de> serde::de::Deserialize<'de> for StringBool {
 impl core::str::FromStr for StringBool {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self> {
-        let n: bool = match str::parse(s) {
-            Ok(n) => n,
-            Err(e) => return Err(ErrorKind::Parse(e.to_string()).into()),
-        };
-        Ok(Self(n))
+        Ok(Self(str::parse(s)?))
     }
 }
 
@@ -195,11 +191,7 @@ impl<'de> serde::de::Deserialize<'de> for StringInt {
 impl core::str::FromStr for StringInt {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self> {
-        let n: i64 = match str::parse(s) {
-            Ok(n) => n,
-            Err(e) => return Err(ErrorKind::Parse(e.to_string()).into()),
-        };
-        Ok(Self(n))
+        Ok(Self(str::parse(s)?))
     }
 }
 
@@ -225,7 +217,7 @@ impl core::str::FromStr for Power {
             "LIGHT" => Power::PowerLight,
             "MEDIUM" => Power::PowerMedium,
             "FULL" => Power::PowerFull,
-            _ => return Err(format!("s is invalid: {}", s).into()),
+            _ => return Err(Error::msg(format!("s is invalid: {}", s))),
         })
     }
 }
@@ -434,7 +426,7 @@ impl Info {
             || src[2][0] != "System"
             || src[3][0] != "libFAH"
         {
-            return Err(ErrorKind::Parse("src is invalid".into()).into());
+            return Err(Error::msg("src is invalid"));
         }
 
         let mut result = Info::default();
@@ -453,13 +445,13 @@ impl Info {
                         if let serde_json::Value::String(v) = &a[1] {
                             field.set(&k, v)?;
                         } else {
-                            return Err(ErrorKind::Parse("unexpected type".into()).into());
+                            return Err(Error::msg("unexpected type"));
                         }
                     } else {
-                        return Err(ErrorKind::Parse("unexpected type".into()).into());
+                        return Err(Error::msg("unexpected type"));
                     }
                 } else {
-                    return Err(ErrorKind::Parse("unexpected type".into()).into());
+                    return Err(Error::msg("unexpected type"));
                 }
             }
         }

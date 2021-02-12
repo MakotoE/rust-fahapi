@@ -4,13 +4,14 @@
 //!
 //! [rust-fahapi on Github](https://github.com/MakotoE/rust-fahapi)
 
-use std::net;
-
+mod connection;
 mod types;
+
+pub use connection::*;
 pub use types::*;
 
-mod connection;
-pub use connection::*;
+pub use anyhow::{Error, Result};
+use std::net;
 
 lazy_static::lazy_static! {
     /// Default TCP address of the FAH client.
@@ -149,7 +150,10 @@ impl API {
         let value_str = format!("{}", value);
 
         if key.contains(&['=', ' ', '!'] as &[char]) || value_str.contains(' ') {
-            return Err(format!("key or value contains bad character: {}={}", key, value).into());
+            return Err(Error::msg(format!(
+                "key or value contains bad character: {}={}",
+                key, value
+            )));
         }
 
         let command = format!("options {}={}", key, value_str);
@@ -250,10 +254,7 @@ impl API {
     pub fn uptime(&mut self) -> Result<FAHDuration> {
         self.conn.exec_eval("uptime", &mut self.buf)?;
         let duration = humantime::parse_duration(std::str::from_utf8(&self.buf)?)?;
-        match chrono::Duration::from_std(duration) {
-            Ok(d) => Ok(d.into()),
-            Err(e) => Err(e.to_string().into()),
-        }
+        Ok(chrono::Duration::from_std(duration)?.into())
     }
 
     /// Blocks until all slots are paused.
@@ -262,45 +263,7 @@ impl API {
     }
 }
 
-error_chain::error_chain! {
-    types {
-        Error, ErrorKind, ResultExt, Result;
-    }
-
-    foreign_links {
-        IO(std::io::Error);
-    }
-
-    errors {
-        EOF {
-            description("EOF")
-        }
-
-        Parse (msg: String) {
-            description("parse error")
-            display("parse error: {}", msg)
-        }
-    }
-}
-
-impl From<std::str::Utf8Error> for Error {
-    fn from(e: std::str::Utf8Error) -> Self {
-        Error::from(ErrorKind::Parse(e.to_string()))
-    }
-}
-
-impl From<serde_json::Error> for Error {
-    fn from(e: serde_json::Error) -> Self {
-        Error::from(ErrorKind::Parse(e.to_string()))
-    }
-}
-
-impl From<humantime::DurationError> for Error {
-    fn from(e: humantime::DurationError) -> Self {
-        Error::from(ErrorKind::Msg(e.to_string()))
-    }
-}
-
+#[derive(Debug, Copy, Clone)]
 pub enum LogUpdatesArg {
     Start,
     Restart,
@@ -336,7 +299,7 @@ pub fn parse_log(s: &str) -> Result<String> {
 
 pub fn parse_pyon_string(s: &str) -> Result<String> {
     if s.len() < 2 || s.bytes().next().unwrap() != b'"' || s.bytes().nth_back(0).unwrap() != b'"' {
-        return Err(format!("cannot parse {}", s).into());
+        return Err(Error::msg(format!("cannot parse {}", s)));
     }
 
     lazy_static::lazy_static! {
@@ -386,7 +349,7 @@ pub fn pyon_to_json(s: &str) -> Result<String> {
             .partial_cmp(SUFFIX.bytes())
             != Some(core::cmp::Ordering::Equal)
     {
-        return Err(format!("invalid PyON format: {}", s).into());
+        return Err(Error::msg(format!("invalid PyON format: {}", s)));
     }
 
     let mut start = match s.find('\n') {

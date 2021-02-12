@@ -29,14 +29,14 @@ impl Connection {
         }
 
         if command.contains('\n') {
-            return Err("command contains newline".into());
+            return Err(Error::msg("command contains newline"));
         }
 
         self.conn.write_all(format!("{}\n", command).as_bytes())?;
 
         if let Err(e) = read_message(&mut self.conn, buf) {
             // Try to reconnect on disconnection
-            if *e.kind().to_string() == ErrorKind::EOF.to_string() {
+            if e.to_string() == EOF {
                 self.conn = connect_timeout(&self.addr, self.connect_timeout)?;
             }
             return Err(e);
@@ -77,6 +77,8 @@ fn connect_timeout(
     Ok(conn)
 }
 
+const EOF: &'static str = "EOF";
+
 pub fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> Result<()> {
     buf.clear();
     loop {
@@ -84,7 +86,7 @@ pub fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> Result<()>
         if r.read(&mut b)? == 0 {
             // If we haven't reached END_OF_MESSAGE and 0 bytes was read, then EOF was returned.
             // This can occur if the command was invalid.
-            return Err(ErrorKind::EOF.into());
+            return Err(Error::msg(EOF));
         }
 
         buf.push(b[0]);

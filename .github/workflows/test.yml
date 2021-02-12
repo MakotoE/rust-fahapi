@@ -9,7 +9,7 @@ on:
 
 jobs:
   test:
-    runs-on: 	ubuntu-20.04
+    runs-on: ubuntu-20.04
     container:
         image: emurasoft/rust-fahapi-ci:1
     steps:
