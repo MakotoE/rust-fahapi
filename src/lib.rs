@@ -182,7 +182,7 @@ impl API {
     pub fn queue_info(&mut self) -> Result<Vec<SlotQueueInfo>> {
         self.conn.exec("queue-info", &mut self.buf)?;
         let s = std::str::from_utf8(&self.buf)?;
-        dbg!(s);
+        dbg!(pyon_to_json(s)?);
         Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
     }
 
@@ -342,13 +342,9 @@ pub fn pyon_to_json(s: &str) -> Result<String> {
     const PREFIX: &str = "PyON";
     const SUFFIX: &str = "\n---";
     if s.len() < PREFIX.len()
-        || s.bytes().take(PREFIX.len()).partial_cmp(PREFIX.bytes())
-            != Some(core::cmp::Ordering::Equal)
+        || s.bytes().take(PREFIX.len()).eq(PREFIX.bytes())
         || s.len() < SUFFIX.len()
-        || s.bytes()
-            .skip(s.len() - SUFFIX.len())
-            .partial_cmp(SUFFIX.bytes())
-            != Some(core::cmp::Ordering::Equal)
+        || s.bytes().skip(s.len() - SUFFIX.len()).eq(SUFFIX.bytes())
     {
         return Err(Error::msg(format!("invalid PyON format: {}", s)));
     }
