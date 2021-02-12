@@ -342,9 +342,9 @@ pub fn pyon_to_json(s: &str) -> Result<String> {
     const PREFIX: &str = "PyON";
     const SUFFIX: &str = "\n---";
     if s.len() < PREFIX.len()
-        || s.bytes().take(PREFIX.len()).eq(PREFIX.bytes())
+        || s.bytes().take(PREFIX.len()).ne(PREFIX.bytes())
         || s.len() < SUFFIX.len()
-        || s.bytes().skip(s.len() - SUFFIX.len()).eq(SUFFIX.bytes())
+        || s.bytes().skip(s.len() - SUFFIX.len()).ne(SUFFIX.bytes())
     {
         return Err(Error::msg(format!("invalid PyON format: {}", s)));
     }
