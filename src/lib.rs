@@ -86,6 +86,7 @@ impl API {
     pub fn configured(&mut self) -> Result<bool> {
         self.conn.exec("configured", &mut self.buf)?;
         let s = std::str::from_utf8(&self.buf)?;
+        dbg!(s);
         // I have no idea what this means
         if s == "PyON 1 configured" {
             return Ok(false);
