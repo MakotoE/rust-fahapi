@@ -437,6 +437,7 @@ impl Info {
             || src[2][0] != "System"
             || src[3][0] != "libFAH"
         {
+            dbg!(&src);
             return Err(Error::msg("src is invalid"));
         }
 
