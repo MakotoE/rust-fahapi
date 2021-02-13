@@ -11,7 +11,7 @@ jobs:
   test:
     runs-on: ubuntu-20.04
     container:
-        image: emurasoft/rust-fahapi-ci:1
+        image: emurasoft/rust-fahapi-ci:2
     steps:
       - run: /etc/init.d/FAHClient start > /dev/null || true
       - run: sleep 0.5
