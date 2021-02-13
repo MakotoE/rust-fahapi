@@ -182,8 +182,8 @@ impl API {
     pub fn queue_info(&mut self) -> Result<Vec<SlotQueueInfo>> {
         self.conn.exec("queue-info", &mut self.buf)?;
         let s = std::str::from_utf8(&self.buf)?;
-        dbg!(s);
-        Ok(serde_json::from_str(pyon_to_json(s)?.as_str())?)
+        let json = pyon_to_json(s)?;
+        serde_json::from_str(&json).map_err(|e| Error::new(e).context(json))
     }
 
     /// Requests an ID from the assignment server.
