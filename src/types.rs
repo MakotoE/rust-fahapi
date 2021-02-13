@@ -1,4 +1,5 @@
 use super::*;
+use std::str::FromStr;
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Default, serde::Deserialize)]
 #[serde(rename_all = "kebab-case", default)]
@@ -354,18 +355,28 @@ impl<'de> serde::de::Deserialize<'de> for FAHDuration {
     where
         D: serde::Deserializer<'de>,
     {
-        let s = serde::de::Deserialize::deserialize(deserializer)?;
+        let s: &str = serde::de::Deserialize::deserialize(deserializer)?;
         if s == UNKNOWN_TIME {
             return Ok(None.into());
         }
 
-        match humantime::parse_duration(s) {
-            Ok(d) => match chrono::Duration::from_std(d) {
-                Ok(d) => Ok(d.into()),
-                Err(e) => Err(serde::de::Error::custom(e.to_string())),
-            },
-            Err(e) => Err(serde::de::Error::custom(e.to_string())),
+        // humantime cannot parse "x.x days"
+        if let Some(number_of_days) = s.strip_suffix(" days") {
+            if number_of_days.contains(".") {
+                const MILLIS_PER_DAY: f64 = (1000 * 60 * 60 * 24) as f64;
+                let n = f64::from_str(number_of_days)
+                    .map_err(|e| serde::de::Error::custom(e.to_string()))?;
+                return Ok(
+                    chrono::Duration::milliseconds((MILLIS_PER_DAY * n).round() as i64).into(),
+                );
+            }
         }
+
+        let duration =
+            humantime::parse_duration(s).map_err(|e| serde::de::Error::custom(e.to_string()))?;
+        let result = chrono::Duration::from_std(duration)
+            .map_err(|e| serde::de::Error::custom(e.to_string()))?;
+        Ok(result.into())
     }
 }
 
@@ -656,5 +667,17 @@ mod tests {
         assert!(!result.fah_client.version.is_empty());
         assert!(!result.system.cpu_id.is_empty());
         assert_eq!(result.system.cpus, StringInt(1));
+    }
+
+    #[test]
+    fn test_fahduration_deserialize() {
+        let s = r#""1 days""#;
+        let result: FAHDuration = serde_json::from_str(s).unwrap();
+        assert_eq!(result.0.unwrap().num_days(), 1);
+
+        let s = r#""1.1 days""#;
+        let result: FAHDuration = serde_json::from_str(s).unwrap();
+        assert_eq!(result.0.unwrap().num_days(), 1);
+        assert_eq!(result.0.unwrap().num_milliseconds(), 95040000);
     }
 }
