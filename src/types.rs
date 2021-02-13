@@ -372,6 +372,17 @@ impl<'de> serde::de::Deserialize<'de> for FAHDuration {
             }
         }
 
+        if let Some(number_of_seconds) = s.strip_suffix(" secs") {
+            if number_of_seconds.contains('.') {
+                const MILLIS_PER_SECOND: f64 = 1000.0;
+                let n = f64::from_str(number_of_seconds)
+                    .map_err(|e| serde::de::Error::custom(e.to_string()))?;
+                return Ok(
+                    chrono::Duration::milliseconds((MILLIS_PER_SECOND * n).round() as i64).into(),
+                );
+            }
+        }
+
         let duration =
             humantime::parse_duration(s).map_err(|e| serde::de::Error::custom(e.to_string()))?;
         let result = chrono::Duration::from_std(duration)
@@ -675,6 +686,10 @@ mod tests {
 
     #[test]
     fn test_fahduration_deserialize() {
+        let s = r#""0.00 secs""#;
+        let result: FAHDuration = serde_json::from_str(s).unwrap();
+        assert_eq!(result.0.unwrap().num_seconds(), 0);
+
         let s = r#""1 days""#;
         let result: FAHDuration = serde_json::from_str(s).unwrap();
         assert_eq!(result.0.unwrap().num_days(), 1);
