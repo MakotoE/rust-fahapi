@@ -431,44 +431,47 @@ pub struct Info {
 
 impl Info {
     pub fn new(src: Vec<Vec<serde_json::Value>>) -> Result<Self> {
-        if src.len() < 4
-            || src[0][0] != "FAHClient"
-            || src[1][0] != "CBang"
-            || src[2][0] != "System"
-            || src[3][0] != "libFAH"
-        {
-            dbg!(&src);
-            return Err(Error::msg("src is invalid"));
+        if src.len() < 4 {
+            return Err(Error::msg(format!(
+                "src should have 4 arrays but has {}",
+                src.len()
+            )));
         }
 
-        let mut result = Info::default();
+        let mut info = Info::default();
 
-        let mut primary_fields: Vec<&mut dyn FieldSetter> = vec![
-            &mut result.fah_client,
-            &mut result.cbang,
-            &mut result.system,
-            &mut result.libfah,
-        ];
-
-        for (field_index, field) in primary_fields.iter_mut().enumerate() {
-            for item in src[field_index][1..].iter() {
-                if let serde_json::Value::Array(a) = item {
-                    if let serde_json::Value::String(k) = &a[0] {
-                        if let serde_json::Value::String(v) = &a[1] {
-                            field.set(&k, v)?;
-                        } else {
-                            return Err(Error::msg("unexpected type"));
-                        }
-                    } else {
-                        return Err(Error::msg("unexpected type"));
-                    }
-                } else {
-                    return Err(Error::msg("unexpected type"));
+        for row in src {
+            let mut row_iter = row.iter();
+            let field: &mut dyn FieldSetter = match row_iter
+                .next()
+                .and_then(|e| e.as_str())
+                .ok_or(Error::msg("unexpected type"))?
+            {
+                "FAHClient" => &mut info.fah_client,
+                "CBang" => &mut info.cbang,
+                "System" => &mut info.system,
+                "libFAH" => &mut info.libfah,
+                s => {
+                    eprintln!("unexpected row type: {}", s);
+                    continue;
                 }
+            };
+
+            for v in row_iter {
+                let entry = v.as_array().ok_or(Error::msg("unexpected type"))?;
+                let k = entry
+                    .get(0)
+                    .and_then(|k| k.as_str())
+                    .ok_or(Error::msg("unexpected type"))?;
+                let v = entry
+                    .get(1)
+                    .and_then(|v| v.as_str())
+                    .ok_or(Error::msg("unexpected type"))?;
+                field.set(k, v)?;
             }
         }
 
-        Ok(result)
+        Ok(info)
     }
 }
 

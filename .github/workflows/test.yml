@@ -17,7 +17,7 @@ jobs:
       - run: sleep 0.5
       - run: FAHClient --send-command pause
       - uses: actions/checkout@v2
-      - run: RUST_BACKTRACE=full cargo test --all-features -- --nocapture
+      - run: RUST_BACKTRACE=short cargo test --all-features -- --nocapture
       - run: cargo doc --all-features
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo fmt -- --check
