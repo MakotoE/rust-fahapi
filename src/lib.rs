@@ -85,7 +85,8 @@ impl API {
     /// Returns true if the client has set a user, team or passkey.
     pub fn configured(&mut self) -> Result<bool> {
         self.conn.exec("configured", &mut self.buf)?;
-        let s = std::str::from_utf8(&self.buf)?.replace("PyON 1 configured", "PyON");
+        let s = std::str::from_utf8(&self.buf)?;
+        dbg!(s);
         Ok(serde_json::from_str(pyon_to_json(&s)?.as_str())?)
     }
 

@@ -77,7 +77,7 @@ fn connect_timeout(
     Ok(conn)
 }
 
-const EOF: &'static str = "EOF";
+const EOF: &str = "EOF";
 
 pub fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> Result<()> {
     buf.clear();
