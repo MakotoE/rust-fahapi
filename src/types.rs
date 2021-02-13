@@ -1,4 +1,5 @@
 use super::*;
+use std::str::FromStr;
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Default, serde::Deserialize)]
 #[serde(rename_all = "kebab-case", default)]
@@ -157,11 +158,7 @@ impl<'de> serde::de::Deserialize<'de> for StringBool {
 impl core::str::FromStr for StringBool {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self> {
-        let n: bool = match str::parse(s) {
-            Ok(n) => n,
-            Err(e) => return Err(ErrorKind::Parse(e.to_string()).into()),
-        };
-        Ok(Self(n))
+        Ok(Self(str::parse(s)?))
     }
 }
 
@@ -195,11 +192,7 @@ impl<'de> serde::de::Deserialize<'de> for StringInt {
 impl core::str::FromStr for StringInt {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self> {
-        let n: i64 = match str::parse(s) {
-            Ok(n) => n,
-            Err(e) => return Err(ErrorKind::Parse(e.to_string()).into()),
-        };
-        Ok(Self(n))
+        Ok(Self(str::parse(s)?))
     }
 }
 
@@ -225,7 +218,7 @@ impl core::str::FromStr for Power {
             "LIGHT" => Power::PowerLight,
             "MEDIUM" => Power::PowerMedium,
             "FULL" => Power::PowerFull,
-            _ => return Err(format!("s is invalid: {}", s).into()),
+            _ => return Err(Error::msg(format!("s is invalid: {}", s))),
         })
     }
 }
@@ -362,18 +355,39 @@ impl<'de> serde::de::Deserialize<'de> for FAHDuration {
     where
         D: serde::Deserializer<'de>,
     {
-        let s = serde::de::Deserialize::deserialize(deserializer)?;
+        let s: &str = serde::de::Deserialize::deserialize(deserializer)?;
         if s == UNKNOWN_TIME {
             return Ok(None.into());
         }
 
-        match humantime::parse_duration(s) {
-            Ok(d) => match chrono::Duration::from_std(d) {
-                Ok(d) => Ok(d.into()),
-                Err(e) => Err(serde::de::Error::custom(e.to_string())),
-            },
-            Err(e) => Err(serde::de::Error::custom(e.to_string())),
+        // humantime cannot parse "x.x days"
+        if let Some(number_of_days) = s.strip_suffix(" days") {
+            if number_of_days.contains('.') {
+                const MILLIS_PER_DAY: f64 = (1000 * 60 * 60 * 24) as f64;
+                let n = f64::from_str(number_of_days)
+                    .map_err(|e| serde::de::Error::custom(e.to_string()))?;
+                return Ok(
+                    chrono::Duration::milliseconds((MILLIS_PER_DAY * n).round() as i64).into(),
+                );
+            }
         }
+
+        if let Some(number_of_seconds) = s.strip_suffix(" secs") {
+            if number_of_seconds.contains('.') {
+                const MILLIS_PER_SECOND: f64 = 1000.0;
+                let n = f64::from_str(number_of_seconds)
+                    .map_err(|e| serde::de::Error::custom(e.to_string()))?;
+                return Ok(
+                    chrono::Duration::milliseconds((MILLIS_PER_SECOND * n).round() as i64).into(),
+                );
+            }
+        }
+
+        let duration =
+            humantime::parse_duration(s).map_err(|e| serde::de::Error::custom(e.to_string()))?;
+        let result = chrono::Duration::from_std(duration)
+            .map_err(|e| serde::de::Error::custom(e.to_string()))?;
+        Ok(result.into())
     }
 }
 
@@ -428,43 +442,47 @@ pub struct Info {
 
 impl Info {
     pub fn new(src: Vec<Vec<serde_json::Value>>) -> Result<Self> {
-        if src.len() < 4
-            || src[0][0] != "FAHClient"
-            || src[1][0] != "CBang"
-            || src[2][0] != "System"
-            || src[3][0] != "libFAH"
-        {
-            return Err(ErrorKind::Parse("src is invalid".into()).into());
+        if src.len() < 4 {
+            return Err(Error::msg(format!(
+                "src should have 4 arrays but has {}",
+                src.len()
+            )));
         }
 
-        let mut result = Info::default();
+        let mut info = Info::default();
 
-        let mut primary_fields: Vec<&mut dyn FieldSetter> = vec![
-            &mut result.fah_client,
-            &mut result.cbang,
-            &mut result.system,
-            &mut result.libfah,
-        ];
-
-        for (field_index, field) in primary_fields.iter_mut().enumerate() {
-            for item in src[field_index][1..].iter() {
-                if let serde_json::Value::Array(a) = item {
-                    if let serde_json::Value::String(k) = &a[0] {
-                        if let serde_json::Value::String(v) = &a[1] {
-                            field.set(&k, v)?;
-                        } else {
-                            return Err(ErrorKind::Parse("unexpected type".into()).into());
-                        }
-                    } else {
-                        return Err(ErrorKind::Parse("unexpected type".into()).into());
-                    }
-                } else {
-                    return Err(ErrorKind::Parse("unexpected type".into()).into());
+        for row in src {
+            let mut row_iter = row.iter();
+            let field: &mut dyn FieldSetter = match row_iter
+                .next()
+                .and_then(|e| e.as_str())
+                .ok_or_else(|| Error::msg("unexpected type"))?
+            {
+                "FAHClient" => &mut info.fah_client,
+                "CBang" => &mut info.cbang,
+                "System" => &mut info.system,
+                "libFAH" => &mut info.libfah,
+                s => {
+                    eprintln!("unexpected row type: {}", s);
+                    continue;
                 }
+            };
+
+            for v in row_iter {
+                let entry = v.as_array().ok_or_else(|| Error::msg("unexpected type"))?;
+                let k = entry
+                    .get(0)
+                    .and_then(|k| k.as_str())
+                    .ok_or_else(|| Error::msg("unexpected type"))?;
+                let v = entry
+                    .get(1)
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| Error::msg("unexpected type"))?;
+                field.set(k, v)?;
             }
         }
 
-        Ok(result)
+        Ok(info)
     }
 }
 
@@ -664,5 +682,21 @@ mod tests {
         assert!(!result.fah_client.version.is_empty());
         assert!(!result.system.cpu_id.is_empty());
         assert_eq!(result.system.cpus, StringInt(1));
+    }
+
+    #[test]
+    fn test_fahduration_deserialize() {
+        let s = r#""0.00 secs""#;
+        let result: FAHDuration = serde_json::from_str(s).unwrap();
+        assert_eq!(result.0.unwrap().num_seconds(), 0);
+
+        let s = r#""1 days""#;
+        let result: FAHDuration = serde_json::from_str(s).unwrap();
+        assert_eq!(result.0.unwrap().num_days(), 1);
+
+        let s = r#""1.1 days""#;
+        let result: FAHDuration = serde_json::from_str(s).unwrap();
+        assert_eq!(result.0.unwrap().num_days(), 1);
+        assert_eq!(result.0.unwrap().num_milliseconds(), 95040000);
     }
 }
