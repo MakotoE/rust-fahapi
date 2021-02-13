@@ -22,7 +22,7 @@ impl Connection {
     pub fn exec(&mut self, command: &str, buf: &mut Vec<u8>) -> Result<()> {
         use std::io::Write;
 
-        if command == "" {
+        if command.is_empty() {
             // FAH doesn't respond to an empty command
             buf.clear();
             return Ok(());
@@ -48,7 +48,7 @@ impl Connection {
     /// Executes commands which do not return a trailing newline. (Some commands don't end their message
     /// and cause infinite blocking.) The response is written to the buffer.
     pub fn exec_eval(&mut self, command: &str, buf: &mut Vec<u8>) -> Result<()> {
-        if command == "" {
+        if command.is_empty() {
             // FAH doesn't respond to an empty command
             buf.clear();
             return Ok(());

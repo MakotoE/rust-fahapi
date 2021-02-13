@@ -362,7 +362,7 @@ impl<'de> serde::de::Deserialize<'de> for FAHDuration {
 
         // humantime cannot parse "x.x days"
         if let Some(number_of_days) = s.strip_suffix(" days") {
-            if number_of_days.contains(".") {
+            if number_of_days.contains('.') {
                 const MILLIS_PER_DAY: f64 = (1000 * 60 * 60 * 24) as f64;
                 let n = f64::from_str(number_of_days)
                     .map_err(|e| serde::de::Error::custom(e.to_string()))?;
@@ -445,7 +445,7 @@ impl Info {
             let field: &mut dyn FieldSetter = match row_iter
                 .next()
                 .and_then(|e| e.as_str())
-                .ok_or(Error::msg("unexpected type"))?
+                .ok_or_else(|| Error::msg("unexpected type"))?
             {
                 "FAHClient" => &mut info.fah_client,
                 "CBang" => &mut info.cbang,
@@ -458,15 +458,15 @@ impl Info {
             };
 
             for v in row_iter {
-                let entry = v.as_array().ok_or(Error::msg("unexpected type"))?;
+                let entry = v.as_array().ok_or_else(|| Error::msg("unexpected type"))?;
                 let k = entry
                     .get(0)
                     .and_then(|k| k.as_str())
-                    .ok_or(Error::msg("unexpected type"))?;
+                    .ok_or_else(|| Error::msg("unexpected type"))?;
                 let v = entry
                     .get(1)
                     .and_then(|v| v.as_str())
-                    .ok_or(Error::msg("unexpected type"))?;
+                    .ok_or_else(|| Error::msg("unexpected type"))?;
                 field.set(k, v)?;
             }
         }
