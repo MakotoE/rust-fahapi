@@ -18,7 +18,7 @@ path = "src/lib.rs"
 harness = false
 
 [dependencies]
-bytes = "0.5"
+bytes = "1.0"
 lazy_static = "1.4"
 regex = "1"
 serde_json = "1.0"
