@@ -110,6 +110,8 @@ pub fn read_message(r: &mut impl std::io::Read, buf: &mut Vec<u8>) -> Result<()>
 mod tests {
     #[allow(unused_imports)]
     use super::*;
+    #[allow(unused_imports)]
+    use bytes::Buf;
 
     #[test]
     fn test_read_message() {
@@ -154,7 +156,6 @@ mod tests {
 
         let mut buf: Vec<u8> = Vec::new();
         for (i, test) in tests.iter().enumerate() {
-            use bytes::buf::ext::BufExt;
             let result = read_message(&mut bytes::Bytes::from_static(test.s).reader(), &mut buf);
             assert_eq!(result.is_err(), test.expect_error);
             assert_eq!(buf.as_slice(), test.expected, "{}", i);
