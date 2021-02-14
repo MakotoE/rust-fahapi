@@ -8,6 +8,7 @@ license = "MIT"
 repository = "https://github.com/MakotoE/rust-fahapi"
 keywords = ["foldingathome"]
 readme = "README.md"
+documentation = "https://docs.rs/fahapi/"
 
 [features]
 all-tests = [] # Run tests that will modify your FAH settings
